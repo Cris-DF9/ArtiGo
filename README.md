@@ -1,10 +1,10 @@
-# ArtiGo MVP
+# Faberio MVP
 
-Prima versione pubblicabile di ArtiGo, ottimizzata come web app mobile-first.
+Marketplace locale Faberio, ottimizzato come web app mobile-first.
 
 ## Pubblicazione su Vercel
 
-1. Crea un nuovo repository GitHub, ad esempio `artigo-mvp`.
+1. Usa il repository GitHub Faberio collegato a Vercel.
 2. Carica tutti i file di questa cartella nella root del repository.
 3. In Vercel scegli **Add New > Project**.
 4. Importa il repository GitHub appena creato.
@@ -17,10 +17,12 @@ Vercel pubblicherà automaticamente `index.html` come homepage.
 
 ## Struttura
 
-- `index.html` - prototipo ArtiGo navigabile
+- `index.html` - applicazione Faberio
 - `vercel.json` - configurazione minima per hosting statico
 - `.gitignore` - esclusioni Git standard
+- `supabase/migrations` - schema, RLS, verifica professionisti e pagamenti
+- `supabase/functions` - Stripe Connect, checkout, webhook e trasferimento finale
 
-## Evoluzione prevista
+## Stato pagamenti
 
-La prossima versione collegherà autenticazione, database, upload, notifiche e dashboard amministratore a un backend reale. I pagamenti verranno integrati successivamente.
+Il flusso è predisposto e resta inattivo finché non vengono configurate le credenziali Stripe e i dati fiscali definitivi di Faberio. I documenti dei professionisti sono conservati in un bucket Supabase privato.
