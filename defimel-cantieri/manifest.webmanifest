@@ -2,15 +2,22 @@
   "name": "DEFIMEL · Cantieri",
   "short_name": "DEFIMEL",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f3f6f8",
   "theme_color": "#0e3556",
   "icons": [
     {
-      "src": "./icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "./icon-512.png?v=2",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "./apple-touch-icon.png?v=2",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
