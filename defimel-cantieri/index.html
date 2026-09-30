@@ -157,6 +157,11 @@ async function exportJobExcel(jobId,from,to,allDates,asBlob=false){
     if(error)throw error;deliveryItems=data||[]
   }
 
+  const totalWorkHours=reports.reduce((s,r)=>s+Number(r.hours||0),0);
+  const totalTravelHours=reports.reduce((s,r)=>s+Number(r.travel_hours||0),0);
+  const totalHours=totalWorkHours+totalTravelHours;
+  const deliveryTotal=id=>deliveryItems.filter(x=>x.delivery_note_id===id).reduce((s,x)=>s+(ddtLineTotal(x)||0),0);
+  const totalDeliveryValue=delivery.reduce((s,d)=>s+deliveryTotal(d.id),0);
   const hoursByPerson={};
   reports.forEach(r=>{const n=personName(r.worker_id);hoursByPerson[n]=(hoursByPerson[n]||0)+Number(r.hours||0)});const travelByPerson={};reports.forEach(r=>{const n=personName(r.worker_id);travelByPerson[n]=(travelByPerson[n]||0)+Number(r.travel_hours||0)});
   const usedTotals={};
@@ -177,8 +182,14 @@ async function exportJobExcel(jobId,from,to,allDates,asBlob=false){
     ['ORE PER OPERATORE'],
     ['Operatore','Ore'],
     ...Object.entries(hoursByPerson).map(([n,h])=>[n,h]),
-    ['Totale ore lavoro',reports.reduce((s,r)=>s+Number(r.hours||0),0)],
-    ['Totale ore viaggio',reports.reduce((s,r)=>s+Number(r.travel_hours||0),0)],
+    ['Totale ore lavoro',totalWorkHours],
+    ['Totale ore viaggio',totalTravelHours],
+    ['Totale ore complessive',totalHours],
+    [''],
+    ['BOLLE / DDT - TOTALI'],
+    ['Numero bolle',delivery.length],
+    ['Totale economico bolle',totalDeliveryValue],
+    ['Numero righe materiali in bolla',deliveryItems.length],
     [''],
     ['MATERIALI USATI - RIEPILOGO'],
     ['Materiale','Quantità','Unità'],
@@ -197,6 +208,7 @@ async function exportJobExcel(jobId,from,to,allDates,asBlob=false){
     'Lavorazioni eseguite':r.work_done||'',
     Note:r.notes||''
   }));
+  if(reportRows.length)reportRows.push({Data:'TOTALE',Operatore:'',Ore:totalWorkHours,'Ore viaggio':totalTravelHours,'Lavorazioni eseguite':'Ore complessive: '+totalHours,Note:''});
   const reportMatRows=reportMaterials.map(m=>{
     const r=reports.find(x=>x.id===m.report_id);
     return {Data:r?fmt(r.report_date):'',Operatore:r?personName(r.worker_id):'',Materiale:m.name,Quantità:Number(m.qty||0),Unità:m.unit}
@@ -224,19 +236,23 @@ async function exportJobExcel(jobId,from,to,allDates,asBlob=false){
     Data:fmt(d.document_date),
     Fornitore:d.supplier||'',
     'Numero DDT':d.document_number||'',
+    'Totale bolla €':deliveryTotal(d.id),
     Stato:d.status==='confirmed'?'Confermata':'Da verificare',
     Note:d.notes||''
   }));
+  if(deliveryRows.length)deliveryRows.push({Data:'TOTALE',Fornitore:'','Numero DDT':'','Totale bolla €':totalDeliveryValue,Stato:'',Note:''});
   const deliveryItemRows=deliveryItems.map(i=>{
     const d=delivery.find(x=>x.id===i.delivery_note_id);
-    return {Data:d?fmt(d.document_date):'',Fornitore:d?.supplier||'','Numero DDT':d?.document_number||'',Codice:i.code||'',Materiale:i.name,Quantità:Number(i.qty||0),Unità:i.unit,'Prezzo unitario':i.unit_price!=null?Number(i.unit_price):'','Base prezzo':i.price_basis||''}
+    return {Data:d?fmt(d.document_date):'',Fornitore:d?.supplier||'','Numero DDT':d?.document_number||'',Codice:i.code||'',Materiale:i.name,Quantità:Number(i.qty||0),Unità:i.unit,'Prezzo unitario':i.unit_price!=null?Number(i.unit_price):'','Base prezzo':i.price_basis||'','Importo riga €':ddtLineTotal(i)||0}
   });
+  if(deliveryItemRows.length)deliveryItemRows.push({Data:'TOTALE',Fornitore:'','Numero DDT':'',Codice:'',Materiale:'',Quantità:'',Unità:'','Prezzo unitario':'','Base prezzo':'','Importo riga €':totalDeliveryValue});
 
   const wb=XLSX.utils.book_new();
   const add=(name,ws)=>{XLSX.utils.book_append_sheet(wb,ws,name)};
   add('Riepilogo',XLSX.utils.aoa_to_sheet(summary));
   add('Rapportini',XLSX.utils.json_to_sheet(reportRows.length?reportRows:[{'Nessun dato':'Nessun rapportino nel periodo'}]));
-  add('Materiali usati',XLSX.utils.json_to_sheet(reportMatRows.length?reportMatRows:[{'Nessun dato':'Nessun materiale usato nel periodo'}]));
+  const usedSheetRows=reportMatRows.length?[...reportMatRows,{}, {Data:'RIEPILOGO TOTALI'}, ...Object.values(usedTotals).map(x=>({Data:'',Operatore:'',Materiale:x.name,Quantità:x.qty,Unità:x.unit}))]:[{'Nessun dato':'Nessun materiale usato nel periodo'}];
+  add('Materiali usati',XLSX.utils.json_to_sheet(usedSheetRows));
   add('Materiali richiesti',XLSX.utils.json_to_sheet(materialRows.length?materialRows:[{'Nessun dato':'Nessuna richiesta materiale nel periodo'}]));
   add('Programmazione',XLSX.utils.json_to_sheet(assignmentRows.length?assignmentRows:[{'Nessun dato':'Nessuna programmazione nel periodo'}]));
   add('Bolle DDT',XLSX.utils.json_to_sheet(deliveryRows.length?deliveryRows:[{'Nessun dato':'Nessuna bolla nel periodo'}]));
