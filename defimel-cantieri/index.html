@@ -142,17 +142,39 @@ function monthBounds(){
 }
 function exportJobModal(jobId){
   const job=S.jobs.find(x=>x.id===jobId);if(!job)return;
-  const [a,b]=monthBounds();
-  openModal('<h2>Esporta cantiere</h2><div class="notice">Crea un file Excel completo del cantiere <b>'+esc(job.name)+'</b>.</div><div class="form-grid"><label class="field">Dal<input id="exFrom" type="date" value="'+a+'"></label><label class="field">Al<input id="exTo" type="date" value="'+b+'"></label></div><label class="field" style="flex-direction:row;align-items:center;gap:10px"><input id="exAll" type="checkbox" style="width:auto;min-height:auto"> Tutto il cantiere, senza filtro date</label><div id="exError"></div><div class="actions"><button class="btn alt" id="cancel">Annulla</button><button class="btn green" id="doExport">Esporta Excel</button></div>');
+  openModal('<h2>Esporta cantiere</h2><div class="notice">Crea un PDF completo del cantiere <b>'+esc(job.name)+'</b> con tutti i dati inseriti.</div><div id="exError"></div><div class="actions"><button class="btn alt" id="cancel">Annulla</button><button class="btn green" id="doExport">Esporta PDF</button></div>');
   $('#cancel').onclick=closeModal;
-  $('#doExport').onclick=async()=>{
-    try{
-      $('#doExport').disabled=true;$('#doExport').textContent='Preparazione…';
-      await exportJobExcel(jobId,$('#exFrom').value,$('#exTo').value,$('#exAll').checked);
-      closeModal()
-    }catch(e){showError($('#exError'),e.message);$('#doExport').disabled=false;$('#doExport').textContent='Esporta Excel'}
-  }
+  $('#doExport').onclick=async()=>{try{$('#doExport').disabled=true;$('#doExport').textContent='Preparazione PDF…';await exportJobPdf(jobId);closeModal()}catch(e){showError($('#exError'),e.message);$('#doExport').disabled=false;$('#doExport').textContent='Esporta PDF'}}
 }
+async function exportJobPdf(jobId){
+  const jsPDF=await ensureJsPDF(),job=S.jobs.find(x=>x.id===jobId);if(!job)throw Error('Cantiere non trovato');
+  const reports=S.reports.filter(x=>x.job_id===jobId).sort((a,b)=>String(a.report_date).localeCompare(String(b.report_date)));
+  const materials=S.materials.filter(x=>x.job_id===jobId);
+  const delivery=S.delivery.filter(x=>x.job_id===jobId).sort((a,b)=>String(a.document_date||'').localeCompare(String(b.document_date||'')));
+  const assignments=S.assignments.filter(x=>x.job_id===jobId).sort((a,b)=>String(a.work_date||'').localeCompare(String(b.work_date||'')));
+  let deliveryItems=[],jobFiles=[];
+  if(delivery.length){const d=await sb.from('delivery_note_items').select('*').in('delivery_note_id',delivery.map(x=>x.id));if(d.error)throw d.error;deliveryItems=d.data||[]}
+  const jf=await sb.from('job_files').select('*').eq('job_id',jobId).order('created_at');if(!jf.error)jobFiles=jf.data||[];
+  const work=reports.reduce((s,r)=>s+Number(r.hours||0),0),travel=reports.reduce((s,r)=>s+Number(r.travel_hours||0),0);
+  const deliveryTotal=id=>deliveryItems.filter(x=>x.delivery_note_id===id).reduce((s,x)=>s+(ddtLineTotal(x)||0),0);
+  const totalDelivery=delivery.reduce((s,d)=>s+deliveryTotal(d.id),0),byPerson={};
+  reports.forEach(r=>{const n=personName(r.worker_id);byPerson[n]??={work:0,travel:0,count:0};byPerson[n].work+=Number(r.hours||0);byPerson[n].travel+=Number(r.travel_hours||0);byPerson[n].count++});
+  const doc=new jsPDF({unit:'mm',format:'a4'}),margin=14;
+  const title=(t,y)=>{if(y>270){doc.addPage();y=16}doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text(t,margin,y);return y+4};
+  doc.setFont('helvetica','bold');doc.setFontSize(19);doc.text('DEFIMEL',margin,16);doc.setFontSize(14);doc.text('Resoconto completo cantiere',margin,24);doc.setFont('helvetica','normal');doc.setFontSize(10);
+  let y=31;
+  [['Cantiere',job.name],['Cliente',job.client_name||'—'],['Indirizzo',job.address||'—'],['Contatto',job.contact||'—'],['Descrizione',job.description||'—'],['Stato',job.status||'—']].forEach(([k,v])=>{doc.setFont('helvetica','bold');doc.text(k+':',margin,y);doc.setFont('helvetica','normal');const lines=doc.splitTextToSize(String(v),155);doc.text(lines,42,y);y+=Math.max(5,lines.length*4)});
+  y+=3;doc.autoTable({startY:y,head:[['Riepilogo','Totale']],body:[['Rapportini',reports.length],['Ore lavoro',work],['Ore viaggio',travel],['Ore complessive',work+travel],['Bolle / DDT',delivery.length],['Totale bolle €',totalDelivery.toFixed(2)],['Richieste materiali',materials.length],['Documenti / foto',jobFiles.length]],theme:'grid',styles:{fontSize:9,cellPadding:2.5}});y=doc.lastAutoTable.finalY+8;
+  y=title('Ore per dipendente',y);const people=Object.entries(byPerson);doc.autoTable({startY:y,head:[['Dipendente','Rapportini','Ore lavoro','Ore viaggio','Totale']],body:people.length?people.map(([n,x])=>[n,x.count,x.work,x.travel,x.work+x.travel]):[['Nessun dato','','','','']],theme:'grid',styles:{fontSize:8.5,cellPadding:2}});y=doc.lastAutoTable.finalY+8;
+  y=title('Rapportini',y);doc.autoTable({startY:y,head:[['Data','Operatore','Ore','Viaggio','Lavorazioni','Materiali','Note']],body:reports.length?reports.map(r=>[fmt(r.report_date),personName(r.worker_id),Number(r.hours||0),Number(r.travel_hours||0),r.work_done||'',r.materials_text||'',r.notes||'']):[['Nessun rapportino','','','','','','']],theme:'striped',styles:{fontSize:7,cellPadding:1.6,overflow:'linebreak'},columnStyles:{0:{cellWidth:18},1:{cellWidth:27},2:{cellWidth:11},3:{cellWidth:12},4:{cellWidth:43},5:{cellWidth:43},6:{cellWidth:28}}});y=doc.lastAutoTable.finalY+8;
+  y=title('Materiali richiesti',y);doc.autoTable({startY:y,head:[['Data','Materiale','Q.tà','Richiesto da','Serve per','Stato','Note']],body:materials.length?materials.map(m=>[new Date(m.created_at).toLocaleDateString('it-IT'),m.name+(m.code?'\n'+m.code:''),Number(m.qty||0)+' '+(m.unit||''),personName(m.requested_by),fmt(m.needed_by),({requested:'Da ordinare',ordered:'Ordinato',received:'Ricevuto',cancelled:'Annullato'}[m.status]||m.status),m.note||'']):[['Nessun materiale','','','','','','']],theme:'striped',styles:{fontSize:7.2,cellPadding:1.7,overflow:'linebreak'}});y=doc.lastAutoTable.finalY+8;
+  y=title('Bolle / DDT',y);doc.autoTable({startY:y,head:[['Data','Fornitore','N. DDT','Totale €','Stato','Note']],body:delivery.length?delivery.map(d=>[fmt(d.document_date),d.supplier||'',d.document_number||'',deliveryTotal(d.id).toFixed(2),d.status==='confirmed'?'Confermata':'Da verificare',d.notes||'']):[['Nessuna bolla','','','','','']],foot:delivery.length?[['TOTALE','','',totalDelivery.toFixed(2),'','']]:undefined,theme:'grid',styles:{fontSize:8,cellPadding:2}});y=doc.lastAutoTable.finalY+8;
+  y=title('Materiali delle bolle',y);doc.autoTable({startY:y,head:[['DDT','Codice','Materiale','Q.tà','Prezzo','Base','Importo €']],body:deliveryItems.length?deliveryItems.map(i=>{const d=delivery.find(x=>x.id===i.delivery_note_id);return [d?.document_number||'',i.code||'',i.name||'',Number(i.qty||0)+' '+(i.unit||''),i.unit_price!=null?Number(i.unit_price).toFixed(2):'',i.price_basis||'',(ddtLineTotal(i)||0).toFixed(2)]}):[['Nessuna riga DDT','','','','','','']],theme:'striped',styles:{fontSize:7,cellPadding:1.6,overflow:'linebreak'}});y=doc.lastAutoTable.finalY+8;
+  y=title('Programmazione',y);doc.autoTable({startY:y,head:[['Data','Operatore','Orario','Indicazioni']],body:assignments.length?assignments.map(a=>[fmt(a.work_date),personName(a.worker_id),(a.start_time||'')+(a.end_time?' - '+a.end_time:''),a.instructions||'']):[['Nessuna programmazione','','','']],theme:'striped',styles:{fontSize:8,cellPadding:2}});y=doc.lastAutoTable.finalY+8;
+  y=title('Documenti e foto',y);doc.autoTable({startY:y,head:[['Data','File','Categoria']],body:jobFiles.length?jobFiles.map(f=>[new Date(f.created_at).toLocaleDateString('it-IT'),f.file_name||'',f.category||'Documento']):[['Nessun documento','','']],theme:'striped',styles:{fontSize:8,cellPadding:2}});
+  const safe=(job.name||'Cantiere').replace(/[^a-z0-9àèéìòù _-]/gi,'').replace(/\s+/g,'_');doc.save('DEFIMEL_Cantiere_'+safe+'.pdf')
+}
+
 async function exportJobExcel(jobId,from,to,allDates,asBlob=false){
   const XLSX=await ensureXLSX();
   const job=S.jobs.find(x=>x.id===jobId);if(!job)throw Error('Cantiere non trovato');
@@ -356,7 +378,7 @@ async function openJobDetail(jobId){
   '<section class="section"><h3>Materiali</h3>'+(materials.length?'<div class="table"><table><tr><th>Materiale</th><th>Q.tà</th><th>Stato</th><th>Richiesto da</th></tr>'+materials.map(m=>'<tr><td>'+esc(m.name)+'</td><td>'+Number(m.qty||0)+' '+esc(m.unit||'')+'</td><td>'+esc({requested:'Da ordinare',ordered:'Ordinato',received:'Ricevuto',cancelled:'Annullato'}[m.status]||m.status)+'</td><td>'+esc(personName(m.requested_by))+'</td></tr>').join('')+'</table></div>':'<div class="empty">Nessun materiale registrato.</div>')+'</section>'+
   '<section class="section"><h3>Bolle / DDT</h3>'+(delivery.length?'<div class="table"><table><tr><th>Data</th><th>Fornitore</th><th>N.</th><th>Stato</th><th>Documento</th></tr>'+delivery.map(d=>'<tr><td>'+fmt(d.document_date)+'</td><td>'+esc(d.supplier||'')+'</td><td>'+esc(d.document_number||'')+'</td><td>'+esc(d.status==='confirmed'?'Confermata':'Da verificare')+'</td><td>'+(d.photo_path?'<button class="btn alt openStoredFile" data-path="'+esc(d.photo_path)+'">Apri</button>':'—')+(S.profile.role==='admin'?'<button class="btn danger deleteDeliveryDetail" data-id="'+d.id+'" style="margin-left:6px">Cancella</button>':'')+'</td></tr>').join('')+'</table></div>':'<div class="empty">Nessuna bolla.</div>')+'</section>'+
   '<section class="section"><div class="panel-head"><h3>Documenti e foto</h3>'+(roleCanUpload?'<button class="btn" id="uploadJobFile">Carica documento</button>':'')+'</div><div id="jobFileUpload"></div>'+(jobFiles.length?'<div class="table"><table><tr><th>File</th><th>Categoria</th><th>Data</th><th></th></tr>'+jobFiles.map(f=>'<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.category||'Documento')+'</td><td>'+new Date(f.created_at).toLocaleDateString('it-IT')+'</td><td><button class="btn alt openStoredFile" data-path="'+esc(f.object_path)+'">Apri</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nessun documento caricato.</div>')+'</section>'+
-  (['admin','secretary'].includes(S.profile.role)?'<div class="actions" style="justify-content:flex-start"><button class="btn green" id="detailExport">Esporta Excel</button>'+(S.profile.role==='admin'?'<button class="btn alt" id="detailArchive">Scarica archivio completo</button>'+(job.status!=='completed'?'<button class="btn danger" id="finishJob">Segna cantiere concluso</button>':'<span class="badge ok">Cantiere concluso</span>'):'')+(job.status!=='archived'?'<button class="btn danger" id="archiveJob">Elimina cantiere</button>':'')+'</div>':''));
+  (['admin','secretary'].includes(S.profile.role)?'<div class="actions" style="justify-content:flex-start"><button class="btn green" id="detailExport">Esporta PDF</button>'+(S.profile.role==='admin'?'<button class="btn alt" id="detailArchive">Scarica archivio completo</button>'+(job.status!=='completed'?'<button class="btn danger" id="finishJob">Segna cantiere concluso</button>':'<span class="badge ok">Cantiere concluso</span>'):'')+(job.status!=='archived'?'<button class="btn danger" id="archiveJob">Elimina cantiere</button>':'')+'</div>':''));
   $('#modalBody').style.width='min(1100px,100%)';
   $('#closeJobDetail').onclick=closeModal;
   if($('#detailExport'))$('#detailExport').onclick=()=>{closeModal();exportJobModal(jobId)};
