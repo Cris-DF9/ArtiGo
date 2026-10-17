@@ -1,15 +1,23 @@
 {
   "name": "DEFIMEL · Cantieri",
   "short_name": "DEFIMEL",
-  "start_url": "./",
-  "scope": "./",
+  "description": "Gestionale cantieri DEFIMEL",
+  "start_url": "/defimel.html",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#f3f6f8",
   "theme_color": "#0e3556",
   "icons": [
     {
-      "src": "./apple-touch-icon.png?v=5",
+      "src": "/defimel-cantieri/apple-touch-icon.png?v=8",
       "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/defimel-cantieri/icon-512.png?v=8",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     }
