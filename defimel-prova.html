@@ -128,6 +128,11 @@ body{width:100%;max-width:100%;min-width:0;overflow-x:hidden;position:relative;l
  .nav{width:100%!important;max-width:100%!important;min-width:0!important}
  .nav button{min-width:0!important;overflow-wrap:anywhere}
 }
+
+/* Prevent iOS Safari input-focus auto zoom (16px / 13px = 1.231). */
+@media (hover:none) and (pointer:coarse){
+ input,textarea,select{font-size:16px!important}
+}
 </style>
 
 </head>
