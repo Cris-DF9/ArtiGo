@@ -133,45 +133,6 @@ body{width:100%;max-width:100%;min-width:0;overflow-x:hidden;position:relative;l
 @media (hover:none) and (pointer:coarse){
  input,textarea,select{font-size:16px!important}
 }
-
-/* DEFIMEL visual redesign — 2026-10-18 */
-:root{--blue:#0f3b60;--green:#73b94c;--blue2:#194d75;--ink:#203547;--muted:#657b89;--bg:#f3f5f6;--line:#d6e0e6;--card:#fff;--shadow:none;--surface:#fff;--surface-alt:#edf2f4;--accent-ink:#103b60}
-@media(prefers-color-scheme:dark){
- :root{color-scheme:dark;--blue:#0f3b60;--green:#73b94c;--blue2:#28628c;--ink:#f0f5f8;--muted:#b8c7d0;--bg:#111b23;--line:#38505e;--card:#1b2a34;--surface:#1b2a34;--surface-alt:#263a46;--accent-ink:#e7f2f8}
-}
-html,body{background:var(--bg)!important;color:var(--ink)}
-.panel,.item,.stat,.login-card,.today-todos,.today-stats,.today-stat{background:var(--card)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:14px!important;box-shadow:none!important}
-.hero-admin,.stat,.side{background-image:none!important}
-.hero-admin{background:var(--card)!important;color:var(--ink)!important}
-h1,h2,h3,.title,.item h3,.panel h2{color:var(--ink)}
-.sub,.muted,.item p,.stat span{color:var(--muted)!important}
-.btn,button,input,textarea,select{min-height:48px}
-.field input,.field textarea,.field select{background:var(--surface)!important;color:var(--ink)!important;border-color:var(--line)!important;font-size:16px}
-.btn.alt,.btn.ghost{background:var(--surface-alt)!important;color:var(--ink)!important;border:1px solid var(--line)!important}
-.btn:not(.alt):not(.ghost):not(.green){background:#0f3b60;color:#fff}
-.btn.green{background:#467a2d!important;color:#fff}
-.actions,.quick-actions{gap:12px!important}
-.today-intro{margin:2px 0 14px}.today-intro h1{font-size:clamp(23px,5vw,30px);margin:6px 0 0}
-.today-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;overflow:hidden;margin-bottom:14px}
-.today-stat{border:0!important;border-radius:0!important;min-width:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;padding:14px 7px;cursor:pointer}
-.today-stat+.today-stat{border-left:1px solid var(--line)!important}
-.today-stat strong{font-size:clamp(24px,5.5vw,37px);color:var(--ink);line-height:1}
-.today-stat span{font-size:clamp(10px,2.6vw,13px);line-height:1.25;color:var(--muted);text-align:center;overflow-wrap:anywhere}
-.today-stat:focus-visible,.today-task:focus-within{outline:3px solid var(--green);outline-offset:-3px}
-.today-actions{display:flex;gap:12px;margin:12px 0 18px}.today-actions .btn{flex:1;min-width:0;white-space:normal}
-.today-todos{padding:18px}.today-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.today-section-head h2{margin:0;font-size:21px}
-.today-task{display:flex;align-items:center;gap:14px;padding:13px 0;border-bottom:1px solid var(--line);min-height:58px}
-.today-task:last-child{border:0}.today-task input{width:24px;height:24px;min-height:24px;flex:0 0 24px;accent-color:var(--green)}
-.today-task span{display:flex;flex-direction:column;gap:4px;min-width:0}.today-task small{color:var(--muted);overflow-wrap:anywhere}
-.job-search-label{margin:18px 0}.job-search-label input{width:100%;margin-top:5px}
-@media(max-width:820px){.mobile-head{display:none!important}.content{padding-top:16px!important}}
-@media(prefers-color-scheme:dark){
- .top,.mobile-head,.nav,.panel-head,.table,.table th,.table td,.modal,.modal-body,.notice,.empty,.toolbar,.stat,.today-stats,.today-stat{background-color:var(--surface)!important;color:var(--ink)!important;border-color:var(--line)!important}
- .nav button,.ey,.table th{color:var(--muted)!important}
- .nav button.on{background:var(--surface-alt)!important;color:var(--ink)!important}
- .side{background:#152a3a!important}
- .badge,.error,.notice{color:var(--ink)!important}
-}
 </style>
 
 </head>
@@ -228,42 +189,7 @@ function buildNav(){const items=S.profile.role==='secretary'?[['home','Home'],['
 const jobName=id=>S.jobs.find(x=>x.id===id)?.name||'Cantiere';const personName=id=>S.people.find(x=>x.id===id)?.full_name||(id===S.profile.id?S.profile.full_name:'Dipendente');
 function head(k,t,s,action=''){return '<div class="toolbar"><div><span class="ey">'+k+'</span><h1 class="title">'+t+'</h1><div class="sub">'+s+'</div></div>'+action+'</div>'}
 function render(){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.view));({home,jobs,schedule,reports,materials,delivery,appointments,smallJobs,team}[S.view]||home)()}
-function home(){
- const admin=S.profile.role==='admin',secretary=S.profile.role==='secretary';
- const pending=S.delivery.filter(x=>x.status==='pending_review');
- const active=S.jobs.filter(x=>x.status==='active');
- const missing=S.assignments.filter(a=>a.work_date===today()&&!S.reports.some(r=>r.report_date===today()&&r.job_id===a.job_id&&r.worker_id===a.worker_id));
- const name=esc((S.profile.full_name||'').split(' ')[0]);
- const dateLabel=new Intl.DateTimeFormat('it-IT',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());
- const stats=[['Cantieri attivi',active.length,'jobs'],['Bolle da verificare',pending.length,'delivery'],['Rapportini mancanti',missing.length,'reports']];
- let h='<section class="today-intro"><div class="ey">OGGI · '+esc(dateLabel)+'</div><h1>Ciao, '+name+'.</h1></section>';
- h+='<div class="today-stats" aria-label="Riepilogo di oggi">'+stats.map(x=>'<button type="button" class="today-stat" data-go="'+x[2]+'"><strong>'+x[1]+'</strong><span>'+x[0]+'</span></button>').join('')+'</div>';
- h+='<div class="today-actions"><button type="button" class="btn" id="todayNewReport">Nuovo rapportino</button><button type="button" class="btn green" id="todayNewMaterial">Richiedi materiale</button></div>';
- h+='<section class="today-todos"><div class="today-section-head"><h2>Da fare</h2>'+(admin?'<button class="btn alt" type="button" id="goSmallJobs">Tutti i lavori</button>':'')+'</div><div id="todayTasks" class="list"><div class="muted">Caricamento attività…</div></div><div id="todayTasksError" role="alert"></div></section>';
- $('#view').innerHTML=h;
- document.querySelectorAll('.today-stat').forEach(b=>b.onclick=()=>{S.view=b.dataset.go;render()});
- $('#todayNewReport').onclick=newReport;$('#todayNewMaterial').onclick=newMaterial;
- if($('#goSmallJobs'))$('#goSmallJobs').onclick=()=>{S.view='smallJobs';render()};
- if(admin){
-  sb.from('small_jobs').select('*').eq('created_by',S.profile.id).order('created_at',{ascending:false}).then(({data,error})=>{
-   if(S.view!=='home')return;
-   const box=$('#todayTasks');if(!box)return;
-   if(error){box.innerHTML='<div class="empty">Impossibile caricare le attività.</div>';return}
-   const rows=(data||[]).filter(x=>!x.completed);
-   box.innerHTML=rows.length?rows.slice(0,12).map(x=>'<label class="today-task"><input type="checkbox" class="todayDone" data-id="'+esc(x.id)+'"><span><b>'+esc(x.client)+'</b><small>'+esc(x.work||'')+'</small></span></label>').join(''):'<div class="empty">Nessuna attività da fare.</div>';
-   box.querySelectorAll('.todayDone').forEach(input=>input.onchange=async()=>{
-    input.disabled=true;
-    const {data:updated,error:err}=await sb.from('small_jobs').update({completed:true}).eq('id',input.dataset.id).eq('created_by',S.profile.id).select('id').single();
-    if(err||!updated){input.disabled=false;input.checked=false;showError($('#todayTasksError'),'Salvataggio non riuscito.');return}
-    input.closest('.today-task')?.remove();
-    if(!box.querySelector('.today-task'))box.innerHTML='<div class="empty">Nessuna attività da fare.</div>';
-   });
-  });
- }else{
-  const assignments=S.assignments.filter(a=>a.work_date===today()&&(secretary||a.worker_id===S.profile.id));
-  $('#todayTasks').innerHTML=assignments.length?assignments.map(a=>'<div class="today-task"><span><b>'+esc(jobName(a.job_id))+'</b><small>'+esc(a.instructions||'Incarico di oggi')+'</small></span></div>').join(''):'<div class="empty">Nessuna attività assegnata oggi.</div>';
- }
-}
+function home(){const admin=S.profile.role==='admin',secretary=S.profile.role==='secretary',req=S.materials.filter(x=>x.status==='requested'),urgent=S.jobs.filter(x=>x.status==='urgent_pending'),pending=S.delivery.filter(x=>x.status==='pending_review'),todayA=S.assignments.filter(x=>x.work_date===today());if(secretary){const todayD=S.delivery.filter(x=>(x.document_date||(x.created_at||'').slice(0,10))===today());$('#view').innerHTML=head('SEGRETERIA','Gestione bolle e cantieri','Inserisci le bolle nei cantieri e controlla il materiale ricevuto.','<button class="btn" id="quickDdt">Inserisci bolla</button>')+'<div class="stats">'+[['Cantieri',S.jobs.filter(x=>x.status!=='archived').length],['Bolle oggi',todayD.length],['Da verificare',pending.length],['Materiali da ordinare',req.length]].map(x=>'<div class="stat"><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>').join('')+'</div><div class="section"><h2>Ultime bolle</h2><div class="table"><table><tr><th>Data</th><th>Cantiere</th><th>Fornitore</th><th>N. DDT</th><th>Stato</th></tr>'+S.delivery.slice(0,10).map(x=>'<tr><td>'+fmt(x.document_date)+'</td><td>'+esc(jobName(x.job_id))+'</td><td>'+esc(x.supplier||'')+'</td><td>'+esc(x.document_number||'')+'</td><td>'+esc(x.status==='confirmed'?'Confermata':'Da verificare')+'</td></tr>').join('')+'</table></div></div>';$('#quickDdt').onclick=newDelivery;return}let h=(admin?'<section class="hero-admin"><span class="ey">CENTRALE OPERATIVA</span><h1>Buongiorno, '+esc(S.profile.full_name.split(' ')[0]||'Amministratore')+'.</h1></section>':head('IL TUO LAVORO','Buongiorno, '+esc(S.profile.full_name.split(' ')[0]||'')+'.','I tuoi lavori, rapportini e materiali.'))+'<div class="stats">'+[['Cantieri attivi',S.jobs.filter(x=>x.status==='active').length],['Incarichi oggi',todayA.length],['Da ordinare',req.length],['Bolle da verificare',pending.length]].map(x=>'<div class="stat"><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>').join('')+'</div>';if(admin){h+='<div class="split"><section class="panel"><div class="panel-head"><h2>Materiale da ordinare</h2><button class="btn ghost" id="goMaterials">Apri elenco</button></div><div class="table" style="border:0;border-radius:0"><table><tr><th>Cantiere</th><th>Materiale</th><th>Q.tà</th><th>Richiesto da</th><th>Serve per</th></tr>'+req.slice(0,8).map(x=>'<tr><td>'+esc(jobName(x.job_id))+'</td><td><b>'+esc(x.name)+'</b></td><td>'+x.qty+' '+esc(x.unit)+'</td><td>'+esc(personName(x.requested_by))+'</td><td>'+fmt(x.needed_by)+'</td></tr>').join('')+'</table></div></section><section class="panel"><div class="panel-head"><h2>Da verificare</h2></div><div style="padding:16px">'+(urgent.length?urgent.map(x=>'<div class="item" style="margin-bottom:10px"><span class="badge req">Cantiere urgente</span><h3>'+esc(x.name)+'</h3><p>'+esc(x.address)+'</p><button class="btn green approve" data-id="'+x.id+'">Approva</button></div>').join(''):'<div class="empty">Nessun cantiere urgente.</div>')+(pending.length?'<div class="notice">'+pending.length+' bolle da verificare.</div>':'')+'</div></section></div>'}else{h+='<div class="section"><h2>Oggi</h2>'+(todayA.length?todayA.map(x=>'<div class="item"><b>'+esc(jobName(x.job_id))+'</b><p>'+esc(x.instructions)+'</p></div>').join(''):'<div class="notice">Nessun incarico assegnato oggi.</div>')+'</div>'}$('#view').innerHTML=h;$('#goMaterials')&&($('#goMaterials').onclick=()=>{S.view='materials';render()});document.querySelectorAll('.approve').forEach(b=>b.onclick=async()=>{await sb.from('jobs').update({status:'active',approved_by:S.profile.id}).eq('id',b.dataset.id);refresh()})}
 
 async function ensureXLSX(){
   if(window.XLSX)return window.XLSX;
@@ -592,24 +518,7 @@ async function openJobDetail(jobId){
   document.querySelectorAll('.deleteDeliveryDetail').forEach(b=>b.onclick=async()=>{closeModal();await deleteDelivery(b.dataset.id)});document.querySelectorAll('.openStoredFile').forEach(b=>b.onclick=async()=>{try{const{data,error}=await sb.storage.from('defimel-files').createSignedUrl(b.dataset.path,600);if(error)throw error;window.open(data.signedUrl,'_blank')}catch(e){alert('Impossibile aprire il documento: '+e.message)}});
   if($('#uploadJobFile'))$('#uploadJobFile').onclick=()=>{$('#jobFileUpload').innerHTML='<div class="notice"><label class="field">File<input id="jobFileInput" type="file"></label><label class="field">Categoria<select id="jobFileCategory"><option value="documento">Documento</option><option value="foto">Foto</option><option value="schema">Schema / disegno</option><option value="certificazione">Certificazione</option><option value="altro">Altro</option></select></label><div id="jobFileError"></div><button class="btn green" id="saveJobFile">Carica</button></div>';$('#saveJobFile').onclick=async()=>{try{const file=$('#jobFileInput').files[0];if(!file)throw Error('Seleziona un file.');const path=S.profile.id+'/'+crypto.randomUUID()+'-'+file.name.replace(/[^a-z0-9._-]/gi,'_');const up=await sb.storage.from('defimel-files').upload(path,file);if(up.error)throw up.error;const{error}=await sb.from('job_files').insert({job_id:jobId,uploaded_by:S.profile.id,object_path:path,file_name:file.name,file_type:file.type||'',category:$('#jobFileCategory').value});if(error)throw error;await openJobDetail(jobId)}catch(e){showError($('#jobFileError'),e.message)}}}
 }
-function jobs(){
- const admin=S.profile.role==='admin',secretary=S.profile.role==='secretary';
- const visibleJobs=S.jobs.filter(x=>x.status!=='archived');
- const action=secretary?'':'<button class="btn" id="newJob">'+(admin?'Nuovo cantiere':'Cantiere urgente')+'</button>';
- $('#view').innerHTML=head('COMMESSE','Cantieri',admin?'Gestisci tutti i cantieri e quelli creati in urgenza.':secretary?'Consulta tutti i cantieri.':'Vedi i lavori assegnati o crea un cantiere urgente.',action)+
- '<label class="field job-search-label" for="jobSearch">Cerca per nome o indirizzo<input id="jobSearch" type="search" placeholder="Nome cantiere o via…" autocomplete="off"></label>'+
- '<div id="jobSearchResults" class="list" aria-live="polite"></div>';
- const draw=(query='')=>{
-  const q=query.trim().toLocaleLowerCase('it-IT');
-  const matches=visibleJobs.filter(x=>(String(x.name||'')+' '+String(x.address||'')).toLocaleLowerCase('it-IT').includes(q));
-  $('#jobSearchResults').innerHTML=matches.length?matches.map(x=>'<div class="item"><div class="row"><span class="badge '+(x.status==='urgent_pending'?'req':'ok')+'">'+esc(x.status==='urgent_pending'?'Da verificare':x.status==='completed'?'Concluso':x.status==='active'?'Attivo':x.status)+'</span><small class="muted">'+new Date(x.created_at).toLocaleDateString('it-IT')+'</small></div><h3>'+esc(x.name)+'</h3><p>'+esc(x.client_name)+(x.address?' · '+esc(x.address):'')+'</p><p>'+esc(x.description)+'</p><div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn openJob" data-id="'+x.id+'">Apri cantiere</button>'+((admin||secretary)?'<button class="btn alt exportJob" data-id="'+x.id+'">Esporta cantiere</button>':'')+'</div></div>').join(''):'<div class="empty">Nessun cantiere trovato</div>';
-  document.querySelectorAll('.openJob').forEach(b=>b.onclick=()=>openJobDetail(b.dataset.id));
-  document.querySelectorAll('.exportJob').forEach(b=>b.onclick=()=>exportJobModal(b.dataset.id));
- };
- $('#jobSearch').addEventListener('input',e=>draw(e.target.value));
- draw();
- if($('#newJob'))$('#newJob').onclick=()=>newJob(admin);
-}
+function jobs(){const admin=S.profile.role==='admin',secretary=S.profile.role==='secretary',visibleJobs=S.jobs.filter(x=>x.status!=='archived');$('#view').innerHTML=head('COMMESSE','Cantieri',admin?'Gestisci tutti i cantieri e quelli creati in urgenza.':secretary?'Consulta tutti i cantieri per associare correttamente bolle e materiali.':'Vedi i lavori assegnati o crea un cantiere urgente.',secretary?'':'<button class="btn" id="newJob">'+(admin?'Nuovo cantiere':'Cantiere urgente')+'</button>')+'<div class="list">'+(visibleJobs.length?visibleJobs.map(x=>'<div class="item"><div class="row"><span class="badge '+(x.status==='urgent_pending'?'req':'ok')+'">'+esc(x.status==='urgent_pending'?'Da verificare':x.status==='completed'?'Concluso':x.status==='active'?'Attivo':x.status)+'</span><small class="muted">'+new Date(x.created_at).toLocaleDateString('it-IT')+'</small></div><h3>'+esc(x.name)+'</h3><p>'+esc(x.client_name)+(x.address?' · '+esc(x.address):'')+'</p><p>'+esc(x.description)+'</p><div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn openJob" data-id="'+x.id+'">Apri cantiere</button>'+((admin||secretary)?'<button class="btn alt exportJob" data-id="'+x.id+'">Esporta cantiere</button>':'')+'</div></div>').join(''):'<div class="empty">Nessun cantiere.</div>')+'</div>';if($('#newJob'))$('#newJob').onclick=()=>newJob(admin);document.querySelectorAll('.openJob').forEach(b=>b.onclick=()=>openJobDetail(b.dataset.id));document.querySelectorAll('.exportJob').forEach(b=>b.onclick=()=>exportJobModal(b.dataset.id))}
 function newJob(admin){const worker=S.profile.role==='worker';openModal('<h2>'+(admin?'Nuovo cantiere':'Cantiere urgente')+'</h2><div class="form-grid"><label class="field">Nome cantiere<input id="jobName"></label><label class="field">Cliente<input id="jobClient"></label>'+(worker?'':'<label class="field full">Indirizzo<input id="jobAddress"></label>')+'<label class="field full">Contatto / telefono<input id="jobContact"></label></div><div id="jobError"></div><div class="actions"><button class="btn alt" id="cancel">Annulla</button><button class="btn" id="saveJob">Salva</button></div>');$('#cancel').onclick=closeModal;$('#saveJob').onclick=async()=>{const row={name:$('#jobName').value.trim(),client_name:$('#jobClient').value.trim(),address:worker?'':($('#jobAddress')?.value.trim()||''),description:'',contact:$('#jobContact').value.trim(),created_by:S.profile.id,status:admin?'active':'urgent_pending',urgent:!admin};if(!row.name)return showError($('#jobError'),'Il nome cantiere è obbligatorio.');if(!worker&&!validAddress(row.address))return showError($('#jobError'),addressError());const{error}=await sb.from('jobs').insert(row);if(error)return showError($('#jobError'),error.message);closeModal();refresh()}}
 function schedule(){const admin=S.profile.role==='admin';$('#view').innerHTML=head('AGENDA','Programmazione',admin?'Assegna chi va dove e quando.':'I tuoi incarichi. ',admin?'<button class="btn" id="newAssignment">Assegna lavoro</button>':'')+'<div class="table mobile-card-table"><table><tr><th>Data</th><th>Cantiere</th><th>Operaio</th><th>Orario</th><th>Indicazioni</th></tr>'+S.assignments.map(x=>'<tr><td data-label="Data">'+fmt(x.work_date)+'</td><td data-label="Cantiere">'+esc(jobName(x.job_id))+'</td><td data-label="Operaio">'+esc(personName(x.worker_id))+'</td><td data-label="Orario">'+esc((x.start_time||'')+(x.end_time?' - '+x.end_time:''))+'</td><td data-label="Indicazioni">'+esc(x.instructions)+'</td></tr>').join('')+'</table></div>';if(admin)$('#newAssignment').onclick=newAssignment}
 function newAssignment(){const workers=S.people.filter(x=>x.role==='worker'&&x.active);openModal('<h2>Assegna lavoro</h2><label class="field">Cantiere<select id="asJob">'+S.jobs.filter(x=>x.status==='active').map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('')+'</select></label><label class="field">Operaio<select id="asWorker">'+workers.map(x=>'<option value="'+x.id+'">'+esc(x.full_name)+'</option>').join('')+'</select></label><div class="form-grid"><label class="field">Data<input id="asDate" type="date" value="'+today()+'"></label><label class="field">Dalle<input id="asStart" type="time" value="08:00"></label><label class="field">Alle<input id="asEnd" type="time" value="17:00"></label></div><label class="field">Indicazioni<textarea id="asNotes"></textarea></label><div class="actions"><button class="btn alt" id="cancel">Annulla</button><button class="btn" id="saveAs">Salva</button></div>');$('#cancel').onclick=closeModal;$('#saveAs').onclick=async()=>{await sb.from('assignments').insert({job_id:$('#asJob').value,worker_id:$('#asWorker').value,work_date:$('#asDate').value,start_time:$('#asStart').value||null,end_time:$('#asEnd').value||null,instructions:$('#asNotes').value,created_by:S.profile.id});closeModal();refresh()}}
