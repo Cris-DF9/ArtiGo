@@ -1,4 +1,4 @@
-const CACHE='defimel-pwa-v3';
+const CACHE='defimel-pwa-v4';
 const APP_SHELL=[
   '/defimel.html',
   '/defimel-prova.html',
