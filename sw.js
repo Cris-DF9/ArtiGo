@@ -1,6 +1,7 @@
-const CACHE='defimel-pwa-v1';
+const CACHE='defimel-pwa-v2';
 const APP_SHELL=[
   '/defimel.html',
+  '/defimel-prova.html',
   '/defimel-cantieri/',
   '/defimel-cantieri/manifest.webmanifest',
   '/defimel-cantieri/icon-512.png',
