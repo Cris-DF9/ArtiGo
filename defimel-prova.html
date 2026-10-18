@@ -129,6 +129,25 @@ body{width:100%;max-width:100%;min-width:0;overflow-x:hidden;position:relative;l
  .nav button{min-width:0!important;overflow-wrap:anywhere}
 }
 </style>
+<script>
+/* One-time iPhone in-app browser zoom reset; pinch-to-zoom remains available. */
+(function(){
+ let done=false;
+ function normalizeInitialZoom(){
+  if(done)return;
+  const vv=window.visualViewport;
+  if(!vv || vv.scale<=1.12)return;
+  done=true;
+  const meta=document.querySelector('meta[name="viewport"]');
+  if(!meta)return;
+  const original=meta.getAttribute('content');
+  meta.setAttribute('content','width=device-width, initial-scale=1.0, viewport-fit=cover');
+  requestAnimationFrame(()=>{meta.setAttribute('content',original);});
+ }
+ window.addEventListener('pageshow',()=>setTimeout(normalizeInitialZoom,150));
+ window.addEventListener('load',()=>setTimeout(normalizeInitialZoom,250));
+})();
+</script>
 </head>
 <body><div id="splash"><div class="splash-inner"><img src="/defimel-cantieri/brand-icon.png?v=7" alt="DEFIMEL"><div class="splash-name">DEFIMEL</div><div class="splash-line"></div><div class="splash-sub">CANTIERI</div></div></div>
 <div id="auth" class="login-shell"><div class="login-card"><div class="brand-lockup"><img src="/defimel-cantieri/brand-icon.png?v=7" alt="DEFIMEL"><div><div class="brand-name">DEFIMEL</div><div class="brand-sub">CANTIERI</div></div></div><div id="loginPane"><h1>Il tuo cantiere,<br>sempre in ordine.</h1><p>Accedi al gestionale DEFIMEL con email e password.</p><label class="field">Email<input id="loginEmail" type="email" autocomplete="username"></label><label class="field">Password<input id="loginPassword" type="password" autocomplete="current-password"></label><div id="loginError"></div><button class="btn" id="loginBtn">Accedi</button><button class="btn ghost" id="forgotPasswordBtn" type="button" style="margin-top:10px">Password dimenticata?</button></div><div id="forgotPane" class="hide"><h1>Recupera password</h1><p>Inserisci la tua email. Riceverai un link per scegliere una nuova password.</p><label class="field">Email<input id="forgotEmail" type="email" autocomplete="email"></label><div id="forgotError"></div><div class="actions" style="justify-content:flex-start"><button class="btn alt" id="forgotBack" type="button">Indietro</button><button class="btn" id="forgotSend" type="button">Invia link</button></div></div><div id="recoveryPane" class="hide"><h1>Nuova password</h1><p>Scegli una nuova password di almeno 12 caratteri.</p><label class="field">Nuova password<input id="recoveryPassword" type="password" autocomplete="new-password"></label><label class="field">Ripeti password<input id="recoveryPassword2" type="password" autocomplete="new-password"></label><div id="recoveryError"></div><button class="btn" id="recoverySave" type="button">Salva nuova password</button></div><div id="setupPane" class="hide"><h1>Attiva amministratore</h1><p>Crea il tuo accesso principale a DEFIMEL · Cantieri.</p><label class="field">Nome e cognome<input id="setupName" value=""></label><label class="field">Email<input id="setupEmail" type="email"></label><label class="field">Password (min. 12 caratteri)<input id="setupPassword" type="password"></label><div id="setupError"></div><button class="btn" id="setupBtn">Attiva accesso</button></div><div id="invitePane" class="hide"><h1>Attiva il tuo accesso</h1><p id="inviteInfo">Verifica invito…</p><label class="field">Scegli password (min. 12 caratteri)<input id="invitePassword" type="password"></label><div id="inviteError"></div><button class="btn" id="inviteBtn">Attiva</button></div></div></div>
