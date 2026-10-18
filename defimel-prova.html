@@ -267,6 +267,13 @@ html,body{background:#0c1826!important;color:var(--ink)!important}
 .home-other-link span{min-width:0;overflow-wrap:anywhere}
 .home-other-link svg:first-child{width:20px;height:20px}
 .home-other-link svg:last-child{width:14px;height:20px;margin-left:auto}
+
+/* Mobile modal scroll fix: keep Save visible above fixed bottom navigation. */
+@media(max-width:820px){
+ #modal.modal{z-index:300!important;align-items:start!important;justify-items:center!important;overflow-y:auto!important;overscroll-behavior:contain;padding:12px 12px calc(28px + env(safe-area-inset-bottom))!important}
+ #modal.modal>div{width:100%!important;max-height:calc(100dvh - 36px - env(safe-area-inset-bottom))!important;overflow-y:auto!important;-webkit-overflow-scrolling:touch!important;overscroll-behavior:contain;padding-bottom:calc(35px + env(safe-area-inset-bottom))!important}
+ #modal.modal .actions{padding-bottom:12px}
+}
 </style>
 
 </head>
