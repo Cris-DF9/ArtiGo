@@ -108,6 +108,11 @@ body{width:100%;max-width:100%;min-width:0;overflow-x:hidden;position:relative;l
 }
 @media(min-width:821px){.nav .mobile-more{display:none!important}}
 
+/* Test-only mobile login layout correction */
+#auth.login-shell{width:100%;max-width:100%;min-width:0;overflow-x:hidden;display:grid;grid-template-columns:minmax(0,1fr)}
+#auth .login-card{min-width:0;max-width:470px;width:100%;margin:auto;overflow-wrap:anywhere}
+#auth .login-card *{max-width:100%}
+#auth .login-card input{min-width:0}
 </style>
 </head>
 <body><div id="splash"><div class="splash-inner"><img src="/defimel-cantieri/brand-icon.png?v=7" alt="DEFIMEL"><div class="splash-name">DEFIMEL</div><div class="splash-line"></div><div class="splash-sub">CANTIERI</div></div></div>
@@ -131,8 +136,6 @@ window.defimelStartupFailure=function(message){
  panel.append(title,para);
  const btn=document.createElement('button');btn.textContent='Riprova';btn.style.cssText='border:0;background:#174f7c;color:white;padding:12px 20px;border-radius:9px;font-weight:700';btn.onclick=()=>location.reload();panel.append(btn);document.body.append(panel);
 };
-window.addEventListener('error',function(e){if(document.getElementById('splash')&&!document.getElementById('splash').classList.contains('out'))window.defimelStartupFailure('Errore durante il caricamento. Apri il link in Safari e premi Riprova.')});
-window.addEventListener('unhandledrejection',function(e){if(document.getElementById('splash')&&!document.getElementById('splash').classList.contains('out'))window.defimelStartupFailure('Il collegamento iniziale non è riuscito. Premi Riprova.')});
 setTimeout(function(){if(document.getElementById('splash')&&!document.getElementById('splash').classList.contains('out'))window.defimelStartupFailure('L\u2019avvio sta impiegando troppo tempo. Controlla la connessione, apri in Safari e premi Riprova.')},15000);
 })();
 </script>
