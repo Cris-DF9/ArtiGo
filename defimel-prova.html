@@ -129,25 +129,7 @@ body{width:100%;max-width:100%;min-width:0;overflow-x:hidden;position:relative;l
  .nav button{min-width:0!important;overflow-wrap:anywhere}
 }
 </style>
-<script>
-/* One-time iPhone in-app browser zoom reset; pinch-to-zoom remains available. */
-(function(){
- let done=false;
- function normalizeInitialZoom(){
-  if(done)return;
-  const vv=window.visualViewport;
-  if(!vv || vv.scale<=1.12)return;
-  done=true;
-  const meta=document.querySelector('meta[name="viewport"]');
-  if(!meta)return;
-  const original=meta.getAttribute('content');
-  meta.setAttribute('content','width=device-width, initial-scale=1.0, viewport-fit=cover');
-  requestAnimationFrame(()=>{meta.setAttribute('content',original);});
- }
- window.addEventListener('pageshow',()=>setTimeout(normalizeInitialZoom,150));
- window.addEventListener('load',()=>setTimeout(normalizeInitialZoom,250));
-})();
-</script>
+
 </head>
 <body><div id="splash"><div class="splash-inner"><img src="/defimel-cantieri/brand-icon.png?v=7" alt="DEFIMEL"><div class="splash-name">DEFIMEL</div><div class="splash-line"></div><div class="splash-sub">CANTIERI</div></div></div>
 <div id="auth" class="login-shell"><div class="login-card"><div class="brand-lockup"><img src="/defimel-cantieri/brand-icon.png?v=7" alt="DEFIMEL"><div><div class="brand-name">DEFIMEL</div><div class="brand-sub">CANTIERI</div></div></div><div id="loginPane"><h1>Il tuo cantiere,<br>sempre in ordine.</h1><p>Accedi al gestionale DEFIMEL con email e password.</p><label class="field">Email<input id="loginEmail" type="email" autocomplete="username"></label><label class="field">Password<input id="loginPassword" type="password" autocomplete="current-password"></label><div id="loginError"></div><button class="btn" id="loginBtn">Accedi</button><button class="btn ghost" id="forgotPasswordBtn" type="button" style="margin-top:10px">Password dimenticata?</button></div><div id="forgotPane" class="hide"><h1>Recupera password</h1><p>Inserisci la tua email. Riceverai un link per scegliere una nuova password.</p><label class="field">Email<input id="forgotEmail" type="email" autocomplete="email"></label><div id="forgotError"></div><div class="actions" style="justify-content:flex-start"><button class="btn alt" id="forgotBack" type="button">Indietro</button><button class="btn" id="forgotSend" type="button">Invia link</button></div></div><div id="recoveryPane" class="hide"><h1>Nuova password</h1><p>Scegli una nuova password di almeno 12 caratteri.</p><label class="field">Nuova password<input id="recoveryPassword" type="password" autocomplete="new-password"></label><label class="field">Ripeti password<input id="recoveryPassword2" type="password" autocomplete="new-password"></label><div id="recoveryError"></div><button class="btn" id="recoverySave" type="button">Salva nuova password</button></div><div id="setupPane" class="hide"><h1>Attiva amministratore</h1><p>Crea il tuo accesso principale a DEFIMEL · Cantieri.</p><label class="field">Nome e cognome<input id="setupName" value=""></label><label class="field">Email<input id="setupEmail" type="email"></label><label class="field">Password (min. 12 caratteri)<input id="setupPassword" type="password"></label><div id="setupError"></div><button class="btn" id="setupBtn">Attiva accesso</button></div><div id="invitePane" class="hide"><h1>Attiva il tuo accesso</h1><p id="inviteInfo">Verifica invito…</p><label class="field">Scegli password (min. 12 caratteri)<input id="invitePassword" type="password"></label><div id="inviteError"></div><button class="btn" id="inviteBtn">Attiva</button></div></div></div>
@@ -699,6 +681,34 @@ async function refresh(){await load();render()}$('#logoutBtn').onclick=async()=>
 </script>
 <script>
 // Service worker intentionally disabled on the public test page.
+</script>
+<script>
+/* Diagnostics only: enable with ?diagnostica=1 on the isolated test page. */
+(function(){
+ if(new URLSearchParams(location.search).get('diagnostica')!=='1')return;
+ function show(){
+  const v=window.visualViewport;
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:2147483647;background:#fff;color:#123;border:2px solid #17527d;border-radius:10px;padding:10px;font:13px/1.45 monospace;box-shadow:0 5px 18px #0003;overflow-wrap:anywhere';
+  const data=document.createElement('pre');
+  data.style.cssText='margin:0;white-space:pre-wrap';
+  const refresh=()=>{
+    data.textContent='DIAGNOSTICA DEFIMEL'+
+     '\nviewport scale: '+(v?v.scale.toFixed(3):'n.d.')+
+     '\nvisual width: '+(v?Math.round(v.width):'n.d.')+
+     '\nwindow width: '+window.innerWidth+
+     '\nhtml width: '+document.documentElement.clientWidth+
+     '\nscroll width: '+document.documentElement.scrollWidth+
+     '\nDPR: '+window.devicePixelRatio;
+  };
+  const button=document.createElement('button');
+  button.textContent='Aggiorna misure';button.style.cssText='padding:7px;border-radius:8px';button.addEventListener('click',refresh);
+  d.append(data,button);document.body.append(d);refresh();
+  window.addEventListener('resize',refresh);
+  if(v)v.addEventListener('resize',refresh);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',show);else show();
+})();
 </script>
 </body>
 </html>
