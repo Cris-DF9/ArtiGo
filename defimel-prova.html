@@ -165,6 +165,17 @@ body{width:100%;max-width:100%;min-width:0;overflow-x:hidden;position:relative;l
 
 .invoice-demo-card{margin-bottom:12px}.invoice-demo-card .field{margin-top:12px}
 .invoice-demo-card select{min-height:48px;font-size:16px}
+
+/* Simpler mobile-first homepage, original blue/green visual identity. */
+.simple-home-hero{background:#103b60;color:white;padding:26px 24px;border-radius:17px;margin-bottom:18px}
+.simple-home-hero .ey{color:#b8d4e7}.simple-home-hero h1{font-size:clamp(23px,5vw,32px);line-height:1.18;margin:10px 0;color:white}
+.simple-home-hero p{color:#d8e9f1;margin:0}
+.simple-home-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:19px}
+.simple-home-actions .btn{min-height:58px;font-size:15px;font-weight:750;white-space:normal}
+.simple-home-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px}
+.simple-home-stat{border:1px solid #dce5ec;background:#fff;border-radius:12px;padding:15px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:10px;color:#103b60;min-height:68px;cursor:pointer}
+.simple-home-stat span{font-size:13px}.simple-home-stat b{font-size:24px}
+@media(max-width:820px){.simple-home-hero{padding:22px 18px}.simple-home-actions{gap:9px}.simple-home-actions .btn{font-size:13px;padding:12px 8px}.simple-home-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.simple-home-stat{padding:12px}.simple-home-stat b{font-size:21px}}
 </style>
 
 </head>
@@ -287,7 +298,29 @@ function invoicing(){
  $('#invDefer').onclick=()=>alert('Simulazione: cantiere rinviato. Nessun dato salvato.');
  $('#invPrepare').onclick=()=>alert('Anteprima controllata: nessuna fattura creata. Verificare anche prezzi e documenti originali prima della fatturazione effettiva.');
 }
-function home(){const admin=S.profile.role==='admin',secretary=S.profile.role==='secretary',req=S.materials.filter(x=>x.status==='requested'),urgent=S.jobs.filter(x=>x.status==='urgent_pending'),pending=S.delivery.filter(x=>x.status==='pending_review'),todayA=S.assignments.filter(x=>x.work_date===today());if(secretary){const todayD=S.delivery.filter(x=>(x.document_date||(x.created_at||'').slice(0,10))===today());$('#view').innerHTML=head('SEGRETERIA','Gestione bolle e cantieri','Inserisci le bolle nei cantieri e controlla il materiale ricevuto.','<button class="btn" id="quickDdt">Inserisci bolla</button>')+'<div class="stats">'+[['Cantieri',S.jobs.filter(x=>x.status!=='archived').length],['Bolle oggi',todayD.length],['Da verificare',pending.length],['Materiali da ordinare',req.length]].map(x=>'<div class="stat"><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>').join('')+'</div><div class="section"><h2>Ultime bolle</h2><div class="table"><table><tr><th>Data</th><th>Cantiere</th><th>Fornitore</th><th>N. DDT</th><th>Stato</th></tr>'+S.delivery.slice(0,10).map(x=>'<tr><td>'+fmt(x.document_date)+'</td><td>'+esc(jobName(x.job_id))+'</td><td>'+esc(x.supplier||'')+'</td><td>'+esc(x.document_number||'')+'</td><td>'+esc(x.status==='confirmed'?'Confermata':'Da verificare')+'</td></tr>').join('')+'</table></div></div>';$('#quickDdt').onclick=newDelivery;return}let h=(admin?'<section class="hero-admin"><span class="ey">CENTRALE OPERATIVA</span><h1>Buongiorno, '+esc(S.profile.full_name.split(' ')[0]||'Amministratore')+'.</h1></section>':head('IL TUO LAVORO','Buongiorno, '+esc(S.profile.full_name.split(' ')[0]||'')+'.','I tuoi lavori, rapportini e materiali.'))+'<div class="stats">'+[['Cantieri attivi',S.jobs.filter(x=>x.status==='active').length],['Incarichi oggi',todayA.length],['Da ordinare',req.length],['Bolle da verificare',pending.length]].map(x=>'<div class="stat"><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>').join('')+'</div>';if(admin){h+='<div class="split"><section class="panel"><div class="panel-head"><h2>Materiale da ordinare</h2><button class="btn ghost" id="goMaterials">Apri elenco</button></div><div class="table" style="border:0;border-radius:0"><table><tr><th>Cantiere</th><th>Materiale</th><th>Q.tà</th><th>Richiesto da</th><th>Serve per</th></tr>'+req.slice(0,8).map(x=>'<tr><td>'+esc(jobName(x.job_id))+'</td><td><b>'+esc(x.name)+'</b></td><td>'+x.qty+' '+esc(x.unit)+'</td><td>'+esc(personName(x.requested_by))+'</td><td>'+fmt(x.needed_by)+'</td></tr>').join('')+'</table></div></section><section class="panel"><div class="panel-head"><h2>Da verificare</h2></div><div style="padding:16px">'+(urgent.length?urgent.map(x=>'<div class="item" style="margin-bottom:10px"><span class="badge req">Cantiere urgente</span><h3>'+esc(x.name)+'</h3><p>'+esc(x.address)+'</p><button class="btn green approve" data-id="'+x.id+'">Approva</button></div>').join(''):'<div class="empty">Nessun cantiere urgente.</div>')+(pending.length?'<div class="notice">'+pending.length+' bolle da verificare.</div>':'')+'</div></section></div>'}else{h+='<div class="section"><h2>Oggi</h2>'+(todayA.length?todayA.map(x=>'<div class="item"><b>'+esc(jobName(x.job_id))+'</b><p>'+esc(x.instructions)+'</p></div>').join(''):'<div class="notice">Nessun incarico assegnato oggi.</div>')+'</div>'}$('#view').innerHTML=h;$('#goMaterials')&&($('#goMaterials').onclick=()=>{S.view='materials';render()});document.querySelectorAll('.approve').forEach(b=>b.onclick=async()=>{await sb.from('jobs').update({status:'active',approved_by:S.profile.id}).eq('id',b.dataset.id);refresh()})}
+function home(){
+ const admin=S.profile.role==='admin',secretary=S.profile.role==='secretary';
+ const active=S.jobs.filter(x=>x.status==='active').length;
+ const requests=S.materials.filter(x=>x.status==='requested').length;
+ const pending=S.delivery.filter(x=>x.status==='pending_review').length;
+ const todayA=S.assignments.filter(x=>x.work_date===today());
+ const first=esc((S.profile.full_name||'').split(' ')[0]||'');
+ let h='<section class="simple-home-hero"><span class="ey">DEFIMEL CANTIERI</span><h1>Buongiorno, '+first+'.</h1><p>Da qui puoi gestire il lavoro senza passaggi inutili.</p></section>';
+ h+='<div class="simple-home-actions">'+
+ (secretary?'<button class="btn green" id="homePrimary">Inserisci bolla</button><button class="btn alt" id="homeSecondary">Apri cantieri</button>':'<button class="btn green" id="homePrimary">Nuovo rapportino</button><button class="btn alt" id="homeSecondary">Richiedi materiale</button>')+
+ '</div>';
+ h+='<div class="simple-home-stats">'+
+ '<button class="simple-home-stat" data-go="jobs"><span>Cantieri attivi</span><b>'+active+'</b></button>'+
+ '<button class="simple-home-stat" data-go="'+(secretary?'delivery':'materials')+'"><span>'+(secretary?'Bolle da verificare':'Materiali richiesti')+'</span><b>'+(secretary?pending:requests)+'</b></button>'+
+ (admin?'<button class="simple-home-stat" data-go="delivery"><span>Bolle da verificare</span><b>'+pending+'</b></button>':'')+
+ '</div>';
+ if(!secretary&&!admin)h+='<section class="section"><h2>I tuoi incarichi di oggi</h2><div class="list">'+(todayA.length?todayA.slice(0,5).map(x=>'<div class="item"><b>'+esc(jobName(x.job_id))+'</b><p>'+esc(x.instructions||'')+'</p></div>').join(''):'<div class="empty">Nessun incarico assegnato oggi.</div>')+'</div></section>';
+ if(admin&&(requests||pending))h+='<div class="notice">Da controllare: '+requests+' richieste materiali e '+pending+' bolle.</div>';
+ $('#view').innerHTML=h;
+ $('#homePrimary').onclick=secretary?newDelivery:newReport;
+ $('#homeSecondary').onclick=secretary?()=>{S.view='jobs';render()}:newMaterial;
+ document.querySelectorAll('.simple-home-stat').forEach(x=>x.onclick=()=>{S.view=x.dataset.go;render()});
+}
 
 async function ensureXLSX(){
   if(window.XLSX)return window.XLSX;
