@@ -687,33 +687,6 @@ async function refresh(){await load();render()}$('#logoutBtn').onclick=async()=>
 <script>
 // Service worker intentionally disabled on the public test page.
 </script>
-<script>
-/* Diagnostics only: enable with ?diagnostica=1 on the isolated test page. */
-(function(){
- if(new URLSearchParams(location.search).get('diagnostica')!=='1')return;
- function show(){
-  const v=window.visualViewport;
-  const d=document.createElement('div');
-  d.style.cssText='position:fixed;left:8px;right:8px;top:8px;z-index:2147483647;background:#fff;color:#123;border:2px solid #17527d;border-radius:10px;padding:10px;font:13px/1.45 monospace;box-shadow:0 5px 18px #0003;overflow-wrap:anywhere';
-  const data=document.createElement('pre');
-  data.style.cssText='margin:0;white-space:pre-wrap';
-  const refresh=()=>{
-    data.textContent='DIAGNOSTICA DEFIMEL'+
-     '\nviewport scale: '+(v?v.scale.toFixed(3):'n.d.')+
-     '\nvisual width: '+(v?Math.round(v.width):'n.d.')+
-     '\nwindow width: '+window.innerWidth+
-     '\nhtml width: '+document.documentElement.clientWidth+
-     '\nscroll width: '+document.documentElement.scrollWidth+
-     '\nDPR: '+window.devicePixelRatio;
-  };
-  const button=document.createElement('button');
-  button.textContent='Aggiorna misure';button.style.cssText='padding:7px;border-radius:8px';button.addEventListener('click',refresh);
-  d.append(data,button);document.body.append(d);refresh();
-  window.addEventListener('resize',refresh);
-  if(v)v.addEventListener('resize',refresh);
- }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',show);else show();
-})();
-</script>
+
 </body>
 </html>
