@@ -306,9 +306,6 @@ function home(){
  const todayA=S.assignments.filter(x=>x.work_date===today());
  const first=esc((S.profile.full_name||'').split(' ')[0]||'');
  let h='<section class="simple-home-hero"><span class="ey">DEFIMEL CANTIERI</span><h1>Buongiorno, '+first+'.</h1><p>Da qui puoi gestire il lavoro senza passaggi inutili.</p></section>';
- h+='<div class="simple-home-actions">'+
- (secretary?'<button class="btn green" id="homePrimary">Inserisci bolla</button><button class="btn alt" id="homeSecondary">Apri cantieri</button>':'<button class="btn green" id="homePrimary">Nuovo rapportino</button><button class="btn alt" id="homeSecondary">Richiedi materiale</button>')+
- '</div>';
  h+='<div class="simple-home-stats">'+
  '<button class="simple-home-stat" data-go="jobs"><span>Cantieri attivi</span><b>'+active+'</b></button>'+
  '<button class="simple-home-stat" data-go="'+(secretary?'delivery':'materials')+'"><span>'+(secretary?'Bolle da verificare':'Materiali richiesti')+'</span><b>'+(secretary?pending:requests)+'</b></button>'+
@@ -317,8 +314,6 @@ function home(){
  if(!secretary&&!admin)h+='<section class="section"><h2>I tuoi incarichi di oggi</h2><div class="list">'+(todayA.length?todayA.slice(0,5).map(x=>'<div class="item"><b>'+esc(jobName(x.job_id))+'</b><p>'+esc(x.instructions||'')+'</p></div>').join(''):'<div class="empty">Nessun incarico assegnato oggi.</div>')+'</div></section>';
  if(admin&&(requests||pending))h+='<div class="notice">Da controllare: '+requests+' richieste materiali e '+pending+' bolle.</div>';
  $('#view').innerHTML=h;
- $('#homePrimary').onclick=secretary?newDelivery:newReport;
- $('#homeSecondary').onclick=secretary?()=>{S.view='jobs';render()}:newMaterial;
  document.querySelectorAll('.simple-home-stat').forEach(x=>x.onclick=()=>{S.view=x.dataset.go;render()});
 }
 
