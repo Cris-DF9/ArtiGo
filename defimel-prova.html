@@ -228,7 +228,7 @@ function render(){document.querySelectorAll('#nav button').forEach(b=>b.classLis
 
 
 /* Invoice preview is client-side only: no database writes or official invoice documents. */
-let invJob='',invStart='',invEnd='',invRate=36,invMarkup=50,invTravel=0,invMode='draft',invEdits={};
+let invJob='',invStart='',invEnd='',invRate=36,invMarkup=50,invTravel=0,invHoursOverride='',invHoursContext='',invMode='draft',invEdits={};
 const invNum=x=>{const n=Number(String(x??'').trim().replace(',','.'));return Number.isFinite(n)?n:NaN};
 function invoicing(){
  if(!['admin','secretary'].includes(S.profile.role)){S.view='home';return render()}
@@ -244,6 +244,9 @@ function invoicing(){
  const reportList=S.reports.filter(x=>x.job_id===invJob&&x.report_date>=invStart&&x.report_date<=invEnd);
  const hours=reportList.reduce((s,x)=>s+(Number(x.hours)||0),0);
  const trips=reportList.reduce((s,x)=>s+(Number(x.travel_hours)||0),0);
+ const hoursContext=invJob+'|'+invStart+'|'+invEnd;
+ if(invHoursContext!==hoursContext){invHoursOverride='';invHoursContext=hoursContext}
+ const billableHours=invHoursOverride===''?hours:invNum(invHoursOverride);
  const unconfirmed=docsInRange.filter(d=>d.status!=='confirmed').length;
  const fmtMoney=x=>Number.isFinite(x)?euro(x):'Da verificare';
  const data=lines.map(({key,x,d})=>{
@@ -259,16 +262,16 @@ function invoicing(){
  });
  const alerts=data.filter(x=>x.review).length;
  const materialTotal=data.reduce((s,x)=>s+(Number.isFinite(x.value)?x.value:0),0);
- const laborTotal=hours*(invNum(invRate)||0);
+ const laborTotal=billableHours*invNum(invRate);
  const total=materialTotal+laborTotal+(invNum(invTravel)||0);
- const mayPrepare=!!job&&!!lines.length&&alerts===0&&unconfirmed===0&&invNum(invRate)>=0&&invNum(invMarkup)>=0&&invStart<=invEnd;
+ const mayPrepare=!!job&&!!lines.length&&alerts===0&&unconfirmed===0&&Number.isFinite(billableHours)&&billableHours>=0&&Number.isFinite(invNum(invRate))&&invNum(invRate)>=0&&invNum(invMarkup)>=0&&invStart<=invEnd;
  let h=head('AMMINISTRAZIONE','Bozza fattura','Anteprima a consuntivo con manodopera e materiali da DDT. Disponibile per amministratore e segreteria.');
  h+='<div class="notice">ANTEPRIMA NON SALVATA. Non viene generata o emessa alcuna fattura. Verifica manualmente prezzi, sconti, moltiplicatori, quantità e materiali realmente utilizzati.</div>';
  h+='<section class="panel" style="padding:18px"><div class="form-grid"><label class="field full">Cantiere<select id="invJob">'+jobs.map(j=>'<option value="'+esc(j.id)+'" '+(j.id===invJob?'selected':'')+'>'+esc(j.name)+'</option>').join('')+'</select></label>'+
  '<label class="field">Dal<input id="invStart" type="date" value="'+invStart+'"></label><label class="field">Al<input id="invEnd" type="date" value="'+invEnd+'"></label>'+
- '<label class="field">Tariffa oraria (€)<input id="invRate" type="number" step=".01" min="0" value="'+invRate+'"></label><label class="field">Ricarico standard (%)<input id="invMarkup" type="number" step=".1" min="0" value="'+invMarkup+'"></label>'+
+ '<label class="field">Ore da fatturare<input id="invHours" type="number" step=".25" min="0" value="'+billableHours+'"></label><label class="field">Tariffa oraria (€)<input id="invRate" type="number" step=".01" min="0" value="'+invRate+'"></label><label class="field">Ricarico standard (%)<input id="invMarkup" type="number" step=".1" min="0" value="'+invMarkup+'"></label>'+
  '<label class="field">Trasferte ed extra (€)<input id="invTravel" type="number" step=".01" value="'+invTravel+'"></label></div></section>';
- h+='<section class="section"><h3>Manodopera</h3><div class="item">'+esc(String(reportList.length))+' rapportini · '+hours+' ore lavorate · '+trips+' ore di viaggio<div><b>'+fmtMoney(laborTotal)+'</b> (ore viaggio non incluse automaticamente)</div></div></section>';
+ h+='<section class="section"><h3>Manodopera</h3><div class="item">'+esc(String(reportList.length))+' rapportini · '+hours+' ore registrate · '+trips+' ore di viaggio<div>Ore fatturate: <b>'+billableHours+'</b> · <b>'+fmtMoney(laborTotal)+'</b> (ore viaggio non incluse automaticamente)</div></div></section>';
  h+='<section class="section"><h3>Materiali da bolle confermate</h3>'+(unconfirmed?'<div class="notice">'+unconfirmed+' bolle non ancora confermate: la bozza non può essere dichiarata pronta.</div>':'')+
  (lines.length?'<div class="list">'+data.map(row=>'<div class="item invoice-line"><b>'+esc(row.x.name||'Materiale senza descrizione')+'</b><small class="muted">'+esc(row.d.supplier||'')+' · DDT '+esc(row.d.document_number||'')+' · Base '+esc(row.x.price_basis||'non specificata')+'</small><div class="form-grid">'+
  '<label class="field">Quantità<input type="number" step=".001" min="0" class="invEdit" data-key="'+esc(row.key)+'" data-field="qty" value="'+(Number.isFinite(row.quantity)?row.quantity:'')+'"></label>'+
@@ -279,7 +282,7 @@ function invoicing(){
  '<div class="notice">'+(mayPrepare?'Dati numerici presenti. Rimane necessaria la revisione prima di fatturare.':'Bozza non pronta: controllare prezzi, bolle non confermate, righe materiale e intervallo date.')+'</div>'+
  '<div class="actions"><button class="btn alt" id="invDefer">Rinvia il cantiere (solo simulazione)</button><button class="btn green" id="invPrepare" '+(mayPrepare?'':'disabled')+'>Verifica bozza (solo simulazione)</button></div></section>';
  $('#view').innerHTML=h;
- for(const [id,field] of [['invJob','invJob'],['invStart','invStart'],['invEnd','invEnd'],['invRate','invRate'],['invMarkup','invMarkup'],['invTravel','invTravel']])$('#'+id).onchange=e=>{const previous=invJob;({invJob:v=>invJob=v,invStart:v=>invStart=v,invEnd:v=>invEnd=v,invRate:v=>invRate=v,invMarkup:v=>{invMarkup=v;invEdits={}},invTravel:v=>invTravel=v})[field](e.target.value);if(previous!==invJob)invEdits={};invoicing()};
+ for(const [id,field] of [['invJob','invJob'],['invStart','invStart'],['invEnd','invEnd'],['invRate','invRate'],['invHours','invHoursOverride'],['invMarkup','invMarkup'],['invTravel','invTravel']])$('#'+id).onchange=e=>{const previous=invJob;({invJob:v=>invJob=v,invStart:v=>invStart=v,invEnd:v=>invEnd=v,invRate:v=>invRate=v,invHoursOverride:v=>invHoursOverride=v,invMarkup:v=>{invMarkup=v;invEdits={}},invTravel:v=>invTravel=v})[field](e.target.value);if(previous!==invJob)invEdits={};invoicing()};
  document.querySelectorAll('.invEdit').forEach(el=>el.onchange=()=>{invEdits[el.dataset.key]??={};invEdits[el.dataset.key][el.dataset.field]=el.value;invoicing()});
  $('#invDefer').onclick=()=>alert('Simulazione: cantiere rinviato. Nessun dato salvato.');
  $('#invPrepare').onclick=()=>alert('Anteprima controllata: nessuna fattura creata. Verificare anche prezzi e documenti originali prima della fatturazione effettiva.');
