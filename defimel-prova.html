@@ -260,6 +260,13 @@ html,body{background:#0c1826!important;color:var(--ink)!important}
  .nav button.nav-core{min-width:92px!important;display:flex!important;flex-direction:column!important;justify-content:center!important;gap:4px!important}
 }
 
+
+/* Keep the Programmazione arrow inside its compact Home tile. */
+.home-other-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.home-other-link{min-width:0;max-width:100%;gap:7px;padding:12px 9px;overflow:hidden}
+.home-other-link span{min-width:0;overflow-wrap:anywhere}
+.home-other-link svg:first-child{width:20px;height:20px}
+.home-other-link svg:last-child{width:14px;height:20px;margin-left:auto}
 </style>
 
 </head>
