@@ -226,21 +226,64 @@ const jobName=id=>S.jobs.find(x=>x.id===id)?.name||'Cantiere';const personName=i
 function head(k,t,s,action=''){return '<div class="toolbar"><div><span class="ey">'+k+'</span><h1 class="title">'+t+'</h1><div class="sub">'+s+'</div></div>'+action+'</div>'}
 function render(){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.view));({home,jobs,schedule,reports,materials,delivery,appointments,smallJobs,team,invoicing}[S.view]||home)()}
 
-/* Front-end mockup only: no invoice generation, database writes, or Zucchetti calls. */
-let demoInvoiceState={a:'postpone',b:'draft',c:'draft'};
+
+/* Invoice preview is client-side only: no database writes or official invoice documents. */
+let invJob='',invStart='',invEnd='',invRate=36,invMarkup=50,invTravel=0,invMode='draft',invEdits={};
+const invNum=x=>{const n=Number(String(x??'').trim().replace(',','.'));return Number.isFinite(n)?n:NaN};
 function invoicing(){
  if(!['admin','secretary'].includes(S.profile.role)){S.view='home';return render()}
- const examples=[{id:'a',name:'Cantiere A',meta:'Iniziato il 25 del mese · In corso'},{id:'b',name:'Cantiere B',meta:'In corso'},{id:'c',name:'Cantiere C',meta:'Lavori conclusi'}];
- const card=x=>'<section class="item invoice-demo-card"><div class="row"><b>'+x.name+'</b><span class="badge '+(demoInvoiceState[x.id]==='postpone'?'blue':'ok')+'">'+(demoInvoiceState[x.id]==='postpone'?'Rinviato':'Da preparare')+'</span></div><p>'+x.meta+'</p><label class="field">Scelta<select class="invoiceDemoSelect" data-id="'+x.id+'"><option value="postpone" '+(demoInvoiceState[x.id]==='postpone'?'selected':'')+'>Rinvia al prossimo mese</option><option value="draft" '+(demoInvoiceState[x.id]==='draft'?'selected':'')+'>Prepara bozza</option></select></label></section>';
- $('#view').innerHTML=head('AMMINISTRAZIONE','Fatturazione','Esempio di gestione mensile per amministratore e segreteria.')+
- '<div class="notice">SIMULAZIONE: i tre cantieri sono esempi. Nessun dato viene salvato e nessuna fattura viene emessa.</div>'+
- '<section class="section"><h2>Da fatturare</h2><div class="list">'+examples.map(card).join('')+'</div></section>'+
- '<section class="section"><h2>Riepilogo scelte</h2><div id="invoiceDemoSummary" class="panel" style="padding:18px"></div></section>';
- const update=()=>{$('#invoiceDemoSummary').innerHTML=examples.map(x=>'<p><b>'+x.name+':</b> '+(demoInvoiceState[x.id]==='postpone'?'Rinviato al prossimo mese':'Bozza da preparare')+'</p>').join('')};
- document.querySelectorAll('.invoiceDemoSelect').forEach(el=>el.onchange=()=>{demoInvoiceState[el.dataset.id]=el.value;invoicing()});
- update();
+ const jobs=S.jobs.filter(j=>j.status!=='archived');
+ if(!invJob||!jobs.some(j=>j.id===invJob))invJob=jobs[0]?.id||'';
+ const month=new Date().toISOString().slice(0,7);
+ if(!invStart)invStart=month+'-01';
+ if(!invEnd)invEnd=month+'-'+String(new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate()).padStart(2,'0');
+ const job=S.jobs.find(j=>j.id===invJob);
+ const docs=S.delivery.filter(d=>d.job_id===invJob&&d.document_date>=invStart&&d.document_date<=invEnd&&d.status==='confirmed');
+ const docsInRange=S.delivery.filter(d=>d.job_id===invJob&&d.document_date>=invStart&&d.document_date<=invEnd);
+ const lines=docs.flatMap(d=>S.deliveryItems.filter(x=>x.delivery_note_id===d.id).map((x,i)=>({key:String(d.id)+'|'+String(x.id||i),x,d})));
+ const reportList=S.reports.filter(x=>x.job_id===invJob&&x.report_date>=invStart&&x.report_date<=invEnd);
+ const hours=reportList.reduce((s,x)=>s+(Number(x.hours)||0),0);
+ const trips=reportList.reduce((s,x)=>s+(Number(x.travel_hours)||0),0);
+ const unconfirmed=docsInRange.filter(d=>d.status!=='confirmed').length;
+ const fmtMoney=x=>Number.isFinite(x)?euro(x):'Da verificare';
+ const data=lines.map(({key,x,d})=>{
+  const quantity=invEdits[key]?.qty===undefined?Number(x.qty):invNum(invEdits[key].qty);
+  const savedTotal=x.line_total==null?NaN:Number(x.line_total);
+  const unitPrice=x.unit_price==null?NaN:Number(x.unit_price);
+  const divisor=ddtPriceDivisor(x.price_basis);
+  const base=Number.isFinite(savedTotal)&&savedTotal>0&&Number(x.qty)>0?savedTotal/Number(x.qty):(Number.isFinite(unitPrice)&&unitPrice>0?unitPrice/divisor:NaN);
+  const cost=invEdits[key]?.cost===undefined?base:invNum(invEdits[key].cost);
+  const markup=invEdits[key]?.markup===undefined?invMarkup:invNum(invEdits[key].markup);
+  const review=!(quantity>0&&cost>0&&markup>=0)||!x.price_basis&&!Number.isFinite(savedTotal);
+  return {key,x,d,quantity,cost,markup,review,value:quantity*cost*(1+markup/100)};
+ });
+ const alerts=data.filter(x=>x.review).length;
+ const materialTotal=data.reduce((s,x)=>s+(Number.isFinite(x.value)?x.value:0),0);
+ const laborTotal=hours*(invNum(invRate)||0);
+ const total=materialTotal+laborTotal+(invNum(invTravel)||0);
+ const mayPrepare=!!job&&!!lines.length&&alerts===0&&unconfirmed===0&&invNum(invRate)>=0&&invNum(invMarkup)>=0&&invStart<=invEnd;
+ let h=head('AMMINISTRAZIONE','Bozza fattura','Anteprima a consuntivo con manodopera e materiali da DDT. Disponibile per amministratore e segreteria.');
+ h+='<div class="notice">ANTEPRIMA NON SALVATA. Non viene generata o emessa alcuna fattura. Verifica manualmente prezzi, sconti, moltiplicatori, quantità e materiali realmente utilizzati.</div>';
+ h+='<section class="panel" style="padding:18px"><div class="form-grid"><label class="field full">Cantiere<select id="invJob">'+jobs.map(j=>'<option value="'+esc(j.id)+'" '+(j.id===invJob?'selected':'')+'>'+esc(j.name)+'</option>').join('')+'</select></label>'+
+ '<label class="field">Dal<input id="invStart" type="date" value="'+invStart+'"></label><label class="field">Al<input id="invEnd" type="date" value="'+invEnd+'"></label>'+
+ '<label class="field">Tariffa oraria (€)<input id="invRate" type="number" step=".01" min="0" value="'+invRate+'"></label><label class="field">Ricarico standard (%)<input id="invMarkup" type="number" step=".1" min="0" value="'+invMarkup+'"></label>'+
+ '<label class="field">Trasferte ed extra (€)<input id="invTravel" type="number" step=".01" value="'+invTravel+'"></label></div></section>';
+ h+='<section class="section"><h3>Manodopera</h3><div class="item">'+esc(String(reportList.length))+' rapportini · '+hours+' ore lavorate · '+trips+' ore di viaggio<div><b>'+fmtMoney(laborTotal)+'</b> (ore viaggio non incluse automaticamente)</div></div></section>';
+ h+='<section class="section"><h3>Materiali da bolle confermate</h3>'+(unconfirmed?'<div class="notice">'+unconfirmed+' bolle non ancora confermate: la bozza non può essere dichiarata pronta.</div>':'')+
+ (lines.length?'<div class="list">'+data.map(row=>'<div class="item invoice-line"><b>'+esc(row.x.name||'Materiale senza descrizione')+'</b><small class="muted">'+esc(row.d.supplier||'')+' · DDT '+esc(row.d.document_number||'')+' · Base '+esc(row.x.price_basis||'non specificata')+'</small><div class="form-grid">'+
+ '<label class="field">Quantità<input type="number" step=".001" min="0" class="invEdit" data-key="'+esc(row.key)+'" data-field="qty" value="'+(Number.isFinite(row.quantity)?row.quantity:'')+'"></label>'+
+ '<label class="field">Costo unitario netto (€)<input type="number" step=".0001" min="0" class="invEdit" data-key="'+esc(row.key)+'" data-field="cost" value="'+(Number.isFinite(row.cost)?row.cost.toFixed(4):'')+'"></label>'+
+ '<label class="field">Ricarico (%)<input type="number" step=".1" min="0" class="invEdit" data-key="'+esc(row.key)+'" data-field="markup" value="'+row.markup+'"></label></div>'+
+ '<p><b>Vendita: '+fmtMoney(row.value)+'</b> '+(row.review?'<span class="badge req">Prezzo da verificare</span>':'<span class="badge ok">Dati completi — controllare</span>')+'</p></div>').join('')+'</div>':'<div class="empty">Nessuna riga di materiale in bolle confermate per il periodo.</div>')+'</section>';
+ h+='<section class="section"><h3>Riepilogo</h3><div class="item"><p>Manodopera: <b>'+fmtMoney(laborTotal)+'</b></p><p>Materiali con ricarico: <b>'+fmtMoney(materialTotal)+'</b></p><p>Trasferte / extra: <b>'+fmtMoney(invNum(invTravel)||0)+'</b></p><h3>Imponibile indicativo: '+fmtMoney(total)+'</h3><small class="muted">IVA e partite già fatturate da verificare prima della versione operativa.</small></div>'+
+ '<div class="notice">'+(mayPrepare?'Dati numerici presenti. Rimane necessaria la revisione prima di fatturare.':'Bozza non pronta: controllare prezzi, bolle non confermate, righe materiale e intervallo date.')+'</div>'+
+ '<div class="actions"><button class="btn alt" id="invDefer">Rinvia il cantiere (solo simulazione)</button><button class="btn green" id="invPrepare" '+(mayPrepare?'':'disabled')+'>Verifica bozza (solo simulazione)</button></div></section>';
+ $('#view').innerHTML=h;
+ for(const [id,field] of [['invJob','invJob'],['invStart','invStart'],['invEnd','invEnd'],['invRate','invRate'],['invMarkup','invMarkup'],['invTravel','invTravel']])$('#'+id).onchange=e=>{const previous=invJob;({invJob:v=>invJob=v,invStart:v=>invStart=v,invEnd:v=>invEnd=v,invRate:v=>invRate=v,invMarkup:v=>{invMarkup=v;invEdits={}},invTravel:v=>invTravel=v})[field](e.target.value);if(previous!==invJob)invEdits={};invoicing()};
+ document.querySelectorAll('.invEdit').forEach(el=>el.onchange=()=>{invEdits[el.dataset.key]??={};invEdits[el.dataset.key][el.dataset.field]=el.value;invoicing()});
+ $('#invDefer').onclick=()=>alert('Simulazione: cantiere rinviato. Nessun dato salvato.');
+ $('#invPrepare').onclick=()=>alert('Anteprima controllata: nessuna fattura creata. Verificare anche prezzi e documenti originali prima della fatturazione effettiva.');
 }
-
 function home(){const admin=S.profile.role==='admin',secretary=S.profile.role==='secretary',req=S.materials.filter(x=>x.status==='requested'),urgent=S.jobs.filter(x=>x.status==='urgent_pending'),pending=S.delivery.filter(x=>x.status==='pending_review'),todayA=S.assignments.filter(x=>x.work_date===today());if(secretary){const todayD=S.delivery.filter(x=>(x.document_date||(x.created_at||'').slice(0,10))===today());$('#view').innerHTML=head('SEGRETERIA','Gestione bolle e cantieri','Inserisci le bolle nei cantieri e controlla il materiale ricevuto.','<button class="btn" id="quickDdt">Inserisci bolla</button>')+'<div class="stats">'+[['Cantieri',S.jobs.filter(x=>x.status!=='archived').length],['Bolle oggi',todayD.length],['Da verificare',pending.length],['Materiali da ordinare',req.length]].map(x=>'<div class="stat"><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>').join('')+'</div><div class="section"><h2>Ultime bolle</h2><div class="table"><table><tr><th>Data</th><th>Cantiere</th><th>Fornitore</th><th>N. DDT</th><th>Stato</th></tr>'+S.delivery.slice(0,10).map(x=>'<tr><td>'+fmt(x.document_date)+'</td><td>'+esc(jobName(x.job_id))+'</td><td>'+esc(x.supplier||'')+'</td><td>'+esc(x.document_number||'')+'</td><td>'+esc(x.status==='confirmed'?'Confermata':'Da verificare')+'</td></tr>').join('')+'</table></div></div>';$('#quickDdt').onclick=newDelivery;return}let h=(admin?'<section class="hero-admin"><span class="ey">CENTRALE OPERATIVA</span><h1>Buongiorno, '+esc(S.profile.full_name.split(' ')[0]||'Amministratore')+'.</h1></section>':head('IL TUO LAVORO','Buongiorno, '+esc(S.profile.full_name.split(' ')[0]||'')+'.','I tuoi lavori, rapportini e materiali.'))+'<div class="stats">'+[['Cantieri attivi',S.jobs.filter(x=>x.status==='active').length],['Incarichi oggi',todayA.length],['Da ordinare',req.length],['Bolle da verificare',pending.length]].map(x=>'<div class="stat"><span>'+x[0]+'</span><strong>'+x[1]+'</strong></div>').join('')+'</div>';if(admin){h+='<div class="split"><section class="panel"><div class="panel-head"><h2>Materiale da ordinare</h2><button class="btn ghost" id="goMaterials">Apri elenco</button></div><div class="table" style="border:0;border-radius:0"><table><tr><th>Cantiere</th><th>Materiale</th><th>Q.tà</th><th>Richiesto da</th><th>Serve per</th></tr>'+req.slice(0,8).map(x=>'<tr><td>'+esc(jobName(x.job_id))+'</td><td><b>'+esc(x.name)+'</b></td><td>'+x.qty+' '+esc(x.unit)+'</td><td>'+esc(personName(x.requested_by))+'</td><td>'+fmt(x.needed_by)+'</td></tr>').join('')+'</table></div></section><section class="panel"><div class="panel-head"><h2>Da verificare</h2></div><div style="padding:16px">'+(urgent.length?urgent.map(x=>'<div class="item" style="margin-bottom:10px"><span class="badge req">Cantiere urgente</span><h3>'+esc(x.name)+'</h3><p>'+esc(x.address)+'</p><button class="btn green approve" data-id="'+x.id+'">Approva</button></div>').join(''):'<div class="empty">Nessun cantiere urgente.</div>')+(pending.length?'<div class="notice">'+pending.length+' bolle da verificare.</div>':'')+'</div></section></div>'}else{h+='<div class="section"><h2>Oggi</h2>'+(todayA.length?todayA.map(x=>'<div class="item"><b>'+esc(jobName(x.job_id))+'</b><p>'+esc(x.instructions)+'</p></div>').join(''):'<div class="notice">Nessun incarico assegnato oggi.</div>')+'</div>'}$('#view').innerHTML=h;$('#goMaterials')&&($('#goMaterials').onclick=()=>{S.view='materials';render()});document.querySelectorAll('.approve').forEach(b=>b.onclick=async()=>{await sb.from('jobs').update({status:'active',approved_by:S.profile.id}).eq('id',b.dataset.id);refresh()})}
 
 async function ensureXLSX(){
