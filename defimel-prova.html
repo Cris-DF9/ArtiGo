@@ -63,7 +63,7 @@ html{width:100%;max-width:100%;overflow-x:hidden;-webkit-text-size-adjust:100%;t
 body{width:100%;max-width:100%;min-width:0;overflow-x:hidden;position:relative;left:0;right:0;margin:0}
 #app,.app,main,.content,.side,.mobile-head{width:100%;max-width:100%;min-width:0}
 @media(max-width:820px){
-  body{touch-action:pan-y}
+  body{touch-action:auto}
   .app{display:block!important;overflow-x:hidden!important}
   .side{overflow-x:hidden!important}
   .profile{padding-left:4px;padding-right:4px}
@@ -113,6 +113,21 @@ body{width:100%;max-width:100%;min-width:0;overflow-x:hidden;position:relative;l
 #auth .login-card{min-width:0;max-width:470px;width:100%;margin:auto;overflow-wrap:anywhere}
 #auth .login-card *{max-width:100%}
 #auth .login-card input{min-width:0}
+
+/* iPhone layout: responsive content without disabling user zoom */
+@media(max-width:480px){
+ html,body,#app,.app,main,.content{min-width:0!important;width:100%!important;max-width:100%!important}
+ .content{padding-left:12px!important;padding-right:12px!important}
+ .stats{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important}
+ .stat{padding:12px!important;min-width:0!important;overflow:hidden}
+ .stat span{font-size:12px!important;line-height:1.3;overflow-wrap:anywhere}
+ .stat strong{font-size:27px!important}
+ .panel,.toolbar,.split,.hero-admin{min-width:0!important;max-width:100%!important}
+ .panel{overflow:hidden}
+ .panel .table{overflow-x:auto!important}
+ .nav{width:100%!important;max-width:100%!important;min-width:0!important}
+ .nav button{min-width:0!important;overflow-wrap:anywhere}
+}
 </style>
 </head>
 <body><div id="splash"><div class="splash-inner"><img src="/defimel-cantieri/brand-icon.png?v=7" alt="DEFIMEL"><div class="splash-name">DEFIMEL</div><div class="splash-line"></div><div class="splash-sub">CANTIERI</div></div></div>
