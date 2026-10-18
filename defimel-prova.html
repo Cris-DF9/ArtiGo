@@ -238,75 +238,15 @@ function showLoginPane(){$('#forgotPane').classList.add('hide');$('#recoveryPane
 function showRecoveryPassword(){$('#app').classList.add('hide');$('#auth').classList.remove('hide');$('#loginPane').classList.add('hide');$('#forgotPane').classList.add('hide');$('#setupPane').classList.add('hide');$('#invitePane').classList.add('hide');$('#recoveryPane').classList.remove('hide');$('#recoverySave').onclick=async()=>{try{const p=$('#recoveryPassword').value,p2=$('#recoveryPassword2').value;if(p.length<12)throw Error('La password deve avere almeno 12 caratteri.');if(p!==p2)throw Error('Le due password non coincidono.');const{error}=await sb.auth.updateUser({password:p});if(error)throw error;history.replaceState(null,'',location.pathname);alert('Password aggiornata.');location.reload()}catch(e){showError($('#recoveryError'),e.message)}}}
 function initAuth(){const q=new URLSearchParams(location.hash.slice(1));if(q.has('setup')){$('#loginPane').classList.add('hide');$('#setupPane').classList.remove('hide');$('#setupBtn').onclick=async()=>{const email=$('#setupEmail').value.trim().toLowerCase(),password=$('#setupPassword').value;try{if(password.length<12)throw Error('La password deve avere almeno 12 caratteri.');await fire('bootstrap',{token:q.get('setup'),name:$('#setupName').value,email,password});await new Promise(r=>setTimeout(r,1200));const{error}=await sb.auth.signInWithPassword({email,password});if(error)throw Error('Attivazione non riuscita. Controlla email e password e riprova.');history.replaceState(null,'',location.pathname);boot()}catch(e){showError($('#setupError'),e.message)}};return}if(q.has('invite')){$('#loginPane').classList.add('hide');$('#invitePane').classList.remove('hide');const email=q.get('email')||'',name=q.get('name')||'Dipendente DEFIMEL';$('#inviteInfo').textContent=name+' · '+email;$('#inviteBtn').onclick=async()=>{const password=$('#invitePassword').value;try{if(!email)throw Error('Link di invito incompleto.');if(password.length<12)throw Error('La password deve avere almeno 12 caratteri.');await fire('register',{token:q.get('invite'),password});await new Promise(r=>setTimeout(r,1200));const{error}=await sb.auth.signInWithPassword({email,password});if(error)throw Error('Attivazione non riuscita. Riprova oppure chiedi un nuovo link.');history.replaceState(null,'',location.pathname);boot()}catch(e){showError($('#inviteError'),e.message)}};return}$('#forgotPasswordBtn').onclick=()=>{$('#loginPane').classList.add('hide');$('#forgotPane').classList.remove('hide');$('#forgotEmail').value=$('#loginEmail').value||''};$('#forgotBack').onclick=showLoginPane;$('#forgotSend').onclick=async()=>{try{const email=$('#forgotEmail').value.trim().toLowerCase();if(!email.includes('@'))throw Error('Inserisci un indirizzo email valido.');const redirectTo=location.origin+location.pathname;const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});if(error)throw error;$('#forgotError').innerHTML='<div class="notice">Email inviata. Apri il link ricevuto per scegliere la nuova password.</div>'}catch(e){showError($('#forgotError'),e.message)}};$('#loginBtn').onclick=async()=>{const{error}=await sb.auth.signInWithPassword({email:$('#loginEmail').value,password:$('#loginPassword').value});error?showError($('#loginError'),'Email o password non corrette.'):boot()}}
 function buildNav(){
- const items=S.profile.role==='secretary'?[['home','Home'],['jobs','Cantieri'],['reports','Rapportini'],['materials','Materiali'],['delivery','Bolle/DDT'],['invoicing','Fatturazione']]:[['home','Home'],['jobs','Cantieri'],['schedule','Programmazione'],['reports','Rapportini'],['materials','Materiali'],['delivery','Bolle/DDT'],...(S.profile.role==='admin'?[['smallJobs','Lavori da fare'],['appointments','Appuntamenti'],['team','Squadra'],['invoicing','Fatturazione']]:[])];
+ const items=S.profile.role==='secretary'?[['home','Home'],['jobs','Cantieri'],['reports','Rapportini'],['materials','Materiali'],['delivery','Bolle/DDT']]:[['home','Home'],['jobs','Cantieri'],['schedule','Programmazione'],['reports','Rapportini'],['materials','Materiali'],['delivery','Bolle/DDT'],...(S.profile.role==='admin'?[['smallJobs','Lavori da fare'],['appointments','Appuntamenti'],['team','Squadra']]:[])];
  $('#nav').innerHTML=items.map(x=>'<button class="nav-core" data-v="'+x[0]+'">'+x[1]+'</button>').join('');
  document.querySelectorAll('#nav button[data-v]').forEach(b=>b.onclick=async()=>{S.view=b.dataset.v;await refresh();b.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'})});
 }
 const jobName=id=>S.jobs.find(x=>x.id===id)?.name||'Cantiere';const personName=id=>S.people.find(x=>x.id===id)?.full_name||(id===S.profile.id?S.profile.full_name:'Dipendente');
 function head(k,t,s,action=''){return '<div class="toolbar"><div><span class="ey">'+k+'</span><h1 class="title">'+t+'</h1><div class="sub">'+s+'</div></div>'+action+'</div>'}
-function render(){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.view));({home,jobs,schedule,reports,materials,delivery,appointments,smallJobs,team,invoicing}[S.view]||home)()}
+function render(){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.view));({home,jobs,schedule,reports,materials,delivery,appointments,smallJobs,team}[S.view]||home)()}
 
 
-/* Invoice preview is client-side only: no database writes or official invoice documents. */
-let invJob='',invStart='',invEnd='',invRate=36,invMarkup=50,invTravel=0,invHoursOverride='',invHoursContext='',invMode='draft',invEdits={};
-const invNum=x=>{const n=Number(String(x??'').trim().replace(',','.'));return Number.isFinite(n)?n:NaN};
-function invoicing(){
- if(!['admin','secretary'].includes(S.profile.role)){S.view='home';return render()}
- const jobs=S.jobs.filter(j=>j.status!=='archived');
- if(!invJob||!jobs.some(j=>j.id===invJob))invJob=jobs[0]?.id||'';
- const month=new Date().toISOString().slice(0,7);
- if(!invStart)invStart=month+'-01';
- if(!invEnd)invEnd=month+'-'+String(new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),0).getDate()).padStart(2,'0');
- const job=S.jobs.find(j=>j.id===invJob);
- const docs=S.delivery.filter(d=>d.job_id===invJob&&d.document_date>=invStart&&d.document_date<=invEnd&&d.status==='confirmed');
- const docsInRange=S.delivery.filter(d=>d.job_id===invJob&&d.document_date>=invStart&&d.document_date<=invEnd);
- const lines=docs.flatMap(d=>S.deliveryItems.filter(x=>x.delivery_note_id===d.id).map((x,i)=>({key:String(d.id)+'|'+String(x.id||i),x,d})));
- const reportList=S.reports.filter(x=>x.job_id===invJob&&x.report_date>=invStart&&x.report_date<=invEnd);
- const hours=reportList.reduce((s,x)=>s+(Number(x.hours)||0),0);
- const trips=reportList.reduce((s,x)=>s+(Number(x.travel_hours)||0),0);
- const hoursContext=invJob+'|'+invStart+'|'+invEnd;
- if(invHoursContext!==hoursContext){invHoursOverride='';invHoursContext=hoursContext}
- const billableHours=invHoursOverride===''?hours:invNum(invHoursOverride);
- const unconfirmed=docsInRange.filter(d=>d.status!=='confirmed').length;
- const fmtMoney=x=>Number.isFinite(x)?euro(x):'Da verificare';
- const data=lines.map(({key,x,d})=>{
-  const quantity=invEdits[key]?.qty===undefined?Number(x.qty):invNum(invEdits[key].qty);
-  const savedTotal=x.line_total==null?NaN:Number(x.line_total);
-  const unitPrice=x.unit_price==null?NaN:Number(x.unit_price);
-  const divisor=ddtPriceDivisor(x.price_basis);
-  const base=Number.isFinite(savedTotal)&&savedTotal>0&&Number(x.qty)>0?savedTotal/Number(x.qty):(Number.isFinite(unitPrice)&&unitPrice>0?unitPrice/divisor:NaN);
-  const cost=invEdits[key]?.cost===undefined?base:invNum(invEdits[key].cost);
-  const markup=invEdits[key]?.markup===undefined?invMarkup:invNum(invEdits[key].markup);
-  const review=!(quantity>0&&cost>0&&markup>=0)||!x.price_basis&&!Number.isFinite(savedTotal);
-  return {key,x,d,quantity,cost,markup,review,value:quantity*cost*(1+markup/100)};
- });
- const alerts=data.filter(x=>x.review).length;
- const materialTotal=data.reduce((s,x)=>s+(Number.isFinite(x.value)?x.value:0),0);
- const laborTotal=billableHours*invNum(invRate);
- const total=materialTotal+laborTotal+(invNum(invTravel)||0);
- const mayPrepare=!!job&&!!lines.length&&alerts===0&&unconfirmed===0&&Number.isFinite(billableHours)&&billableHours>=0&&Number.isFinite(invNum(invRate))&&invNum(invRate)>=0&&invNum(invMarkup)>=0&&invStart<=invEnd;
- let h=head('AMMINISTRAZIONE','Bozza fattura','Anteprima a consuntivo con manodopera e materiali da DDT. Disponibile per amministratore e segreteria.');
- h+='<div class="notice">ANTEPRIMA NON SALVATA. Non viene generata o emessa alcuna fattura. Verifica manualmente prezzi, sconti, moltiplicatori, quantità e materiali realmente utilizzati.</div>';
- h+='<section class="panel" style="padding:18px"><div class="form-grid"><label class="field full">Cantiere<select id="invJob">'+jobs.map(j=>'<option value="'+esc(j.id)+'" '+(j.id===invJob?'selected':'')+'>'+esc(j.name)+'</option>').join('')+'</select></label>'+
- '<label class="field">Dal<input id="invStart" type="date" value="'+invStart+'"></label><label class="field">Al<input id="invEnd" type="date" value="'+invEnd+'"></label>'+
- '<label class="field">Ore da fatturare<input id="invHours" type="number" step=".25" min="0" value="'+billableHours+'"></label><label class="field">Tariffa oraria (€)<input id="invRate" type="number" step=".01" min="0" value="'+invRate+'"></label><label class="field">Ricarico standard (%)<input id="invMarkup" type="number" step=".1" min="0" value="'+invMarkup+'"></label>'+
- '<label class="field">Trasferte ed extra (€)<input id="invTravel" type="number" step=".01" value="'+invTravel+'"></label></div></section>';
- h+='<section class="section"><h3>Manodopera</h3><div class="item">'+esc(String(reportList.length))+' rapportini · '+hours+' ore registrate · '+trips+' ore di viaggio<div>Ore fatturate: <b>'+billableHours+'</b> · <b>'+fmtMoney(laborTotal)+'</b> (ore viaggio non incluse automaticamente)</div></div></section>';
- h+='<section class="section"><h3>Materiali da bolle confermate</h3>'+(unconfirmed?'<div class="notice">'+unconfirmed+' bolle non ancora confermate: la bozza non può essere dichiarata pronta.</div>':'')+
- (lines.length?'<div class="list">'+data.map(row=>'<div class="item invoice-line"><b>'+esc(row.x.name||'Materiale senza descrizione')+'</b><small class="muted">'+esc(row.d.supplier||'')+' · DDT '+esc(row.d.document_number||'')+' · Base '+esc(row.x.price_basis||'non specificata')+'</small><div class="form-grid">'+
- '<label class="field">Quantità<input type="number" step=".001" min="0" class="invEdit" data-key="'+esc(row.key)+'" data-field="qty" value="'+(Number.isFinite(row.quantity)?row.quantity:'')+'"></label>'+
- '<label class="field">Costo unitario netto (€)<input type="number" step=".0001" min="0" class="invEdit" data-key="'+esc(row.key)+'" data-field="cost" value="'+(Number.isFinite(row.cost)?row.cost.toFixed(4):'')+'"></label>'+
- '<label class="field">Ricarico (%)<input type="number" step=".1" min="0" class="invEdit" data-key="'+esc(row.key)+'" data-field="markup" value="'+row.markup+'"></label></div>'+
- '<p><b>Vendita: '+fmtMoney(row.value)+'</b> '+(row.review?'<span class="badge req">Prezzo da verificare</span>':'<span class="badge ok">Dati completi — controllare</span>')+'</p></div>').join('')+'</div>':'<div class="empty">Nessuna riga di materiale in bolle confermate per il periodo.</div>')+'</section>';
- h+='<section class="section"><h3>Riepilogo</h3><div class="item"><p>Manodopera: <b>'+fmtMoney(laborTotal)+'</b></p><p>Materiali con ricarico: <b>'+fmtMoney(materialTotal)+'</b></p><p>Trasferte / extra: <b>'+fmtMoney(invNum(invTravel)||0)+'</b></p><h3>Imponibile indicativo: '+fmtMoney(total)+'</h3><small class="muted">IVA e partite già fatturate da verificare prima della versione operativa.</small></div>'+
- '<div class="notice">'+(mayPrepare?'Dati numerici presenti. Rimane necessaria la revisione prima di fatturare.':'Bozza non pronta: controllare prezzi, bolle non confermate, righe materiale e intervallo date.')+'</div>'+
- '<div class="actions"><button class="btn alt" id="invDefer">Rinvia il cantiere (solo simulazione)</button><button class="btn green" id="invPrepare" '+(mayPrepare?'':'disabled')+'>Verifica bozza (solo simulazione)</button></div></section>';
- $('#view').innerHTML=h;
- for(const [id,field] of [['invJob','invJob'],['invStart','invStart'],['invEnd','invEnd'],['invRate','invRate'],['invHours','invHoursOverride'],['invMarkup','invMarkup'],['invTravel','invTravel']])$('#'+id).onchange=e=>{const previous=invJob;({invJob:v=>invJob=v,invStart:v=>invStart=v,invEnd:v=>invEnd=v,invRate:v=>invRate=v,invHoursOverride:v=>invHoursOverride=v,invMarkup:v=>{invMarkup=v;invEdits={}},invTravel:v=>invTravel=v})[field](e.target.value);if(previous!==invJob)invEdits={};invoicing()};
- document.querySelectorAll('.invEdit').forEach(el=>el.onchange=()=>{invEdits[el.dataset.key]??={};invEdits[el.dataset.key][el.dataset.field]=el.value;invoicing()});
- $('#invDefer').onclick=()=>alert('Simulazione: cantiere rinviato. Nessun dato salvato.');
- $('#invPrepare').onclick=()=>alert('Anteprima controllata: nessuna fattura creata. Verificare anche prezzi e documenti originali prima della fatturazione effettiva.');
-}
 function home(){
  const admin=S.profile.role==='admin',secretary=S.profile.role==='secretary';
  const active=S.jobs.filter(x=>x.status==='active').length;
