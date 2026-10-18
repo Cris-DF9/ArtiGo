@@ -308,6 +308,7 @@ function home(){
  let h='<section class="simple-home-hero"><span class="ey">DEFIMEL CANTIERI</span><h1>Buongiorno, '+first+'.</h1><p>Da qui puoi gestire il lavoro senza passaggi inutili.</p></section>';
  h+='<div class="simple-home-stats">'+
  '<button class="simple-home-stat" data-go="jobs"><span>Cantieri attivi</span><b>'+active+'</b></button>'+
+ '<button class="simple-home-stat" data-go="delivery"><span>Bolle / DDT</span><b>'+S.delivery.length+'</b></button>'+
  '<button class="simple-home-stat" data-go="'+(secretary?'delivery':'materials')+'"><span>'+(secretary?'Bolle da verificare':'Materiali richiesti')+'</span><b>'+(secretary?pending:requests)+'</b></button>'+
  (admin?'<button class="simple-home-stat" data-go="delivery"><span>Bolle da verificare</span><b>'+pending+'</b></button>':'')+
  '</div>';
