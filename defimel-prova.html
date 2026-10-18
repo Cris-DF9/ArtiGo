@@ -217,6 +217,26 @@ html,body{background:#0c1826!important;color:var(--ink)!important}
 .modal h2,.modal h3{color:#fff}.modal .item{box-shadow:none}
 @media(max-width:820px){.nav{background:#112338!important}.nav button.nav-core{color:#b9ccdf!important}.nav button.nav-core.on{background:#1c4c77!important;color:#fff!important}}
 
+
+/* Final dark reference: greeting in background, action buttons below greeting and horizontal dark summary rows. */
+@media(max-width:820px){
+ body,.app,main,.content{background:#0d1b2a!important}
+ .content{padding-top:0!important}
+ .mobile-head{background:#0d1b2a!important;border:0!important;position:static!important;top:auto!important;padding:5px 0 12px!important;margin:0!important;box-shadow:none!important}
+ .quick-actions .btn{min-height:66px!important;border-radius:15px!important;white-space:normal!important;text-align:center;font-size:14px!important;line-height:1.25!important}
+ .simple-home-hero{padding:31px 10px 19px!important;margin:0!important;background:linear-gradient(115deg,#0b223c,#102d49)!important;border:0!important;border-radius:0!important;box-shadow:none!important}
+ .simple-home-hero .ey{color:#9db7cc!important;letter-spacing:.16em}
+ .simple-home-hero h1{font-size:36px!important;line-height:1.15!important;margin:10px 0!important}
+ .simple-home-hero p{font-size:15px!important;line-height:1.5!important}
+ .home-ddt-action{margin:0 0 27px!important}
+ .home-ddt-action .btn{min-height:65px!important;border-radius:15px!important;box-shadow:0 6px 18px rgba(0,0,0,.2)}
+ .home-recap-title{font-size:22px;color:#fff;margin:14px 0 14px}
+ .simple-home-stats{display:flex!important;flex-direction:column!important;gap:12px!important}
+ .simple-home-stat{width:100%;display:flex;min-height:92px!important;border-radius:16px!important;padding:19px!important;text-align:left;background:linear-gradient(110deg,#172a3e,#1c3146)!important;border:1px solid #36526a!important}
+ .simple-home-stat span{font-size:17px!important;font-weight:700!important;color:#f1f6fc!important}
+ .simple-home-stat b{font-size:32px!important}
+}
+@media(min-width:821px){.home-recap-title{margin:15px 0;color:#f3f8ff}}
 </style>
 
 </head>
@@ -276,7 +296,7 @@ function buildNav(){
 }
 const jobName=id=>S.jobs.find(x=>x.id===id)?.name||'Cantiere';const personName=id=>S.people.find(x=>x.id===id)?.full_name||(id===S.profile.id?S.profile.full_name:'Dipendente');
 function head(k,t,s,action=''){return '<div class="toolbar"><div><span class="ey">'+k+'</span><h1 class="title">'+t+'</h1><div class="sub">'+s+'</div></div>'+action+'</div>'}
-function render(){document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.view));({home,jobs,schedule,reports,materials,delivery,appointments,smallJobs,team}[S.view]||home)()}
+function render(){const mh=document.querySelector('.mobile-head');if(mh&&mh.parentElement!==document.querySelector('main'))document.querySelector('main').insertBefore(mh,$('#view'));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.view));({home,jobs,schedule,reports,materials,delivery,appointments,smallJobs,team}[S.view]||home)()}
 
 
 function home(){
@@ -286,9 +306,9 @@ function home(){
  const pending=S.delivery.filter(x=>x.status==='pending_review').length;
  const todayA=S.assignments.filter(x=>x.work_date===today());
  const first=esc((S.profile.full_name||'').split(' ')[0]||'');
- let h='<section class="simple-home-hero"><span class="ey">DEFIMEL CANTIERI</span><h1>Buongiorno, '+first+'.</h1><p>Da qui puoi gestire il lavoro senza passaggi inutili.</p></section>';
+ let h='<section class="simple-home-hero"><span class="ey">BUON LAVORO</span><h1>'+first+'!</h1><p>Ecco la panoramica dei tuoi cantieri.</p></section>';
  h+='<div class="home-ddt-action"><button class="btn green" id="homeAddDdt" type="button">Richiedi materiale</button></div>';
- h+='<div class="simple-home-stats">'+
+ h+='<h2 class="home-recap-title">Riepilogo</h2><div class="simple-home-stats">'+
  '<button class="simple-home-stat" data-go="jobs"><span>Cantieri attivi</span><b>'+active+'</b></button>'+
 
  '<button class="simple-home-stat" data-go="'+(secretary?'delivery':'materials')+'"><span>'+(secretary?'Bolle da verificare':'Materiali richiesti')+'</span><b>'+(secretary?pending:requests)+'</b></button>'+
@@ -297,6 +317,7 @@ function home(){
  if(!secretary&&!admin)h+='<section class="section"><h2>I tuoi incarichi di oggi</h2><div class="list">'+(todayA.length?todayA.slice(0,5).map(x=>'<div class="item"><b>'+esc(jobName(x.job_id))+'</b><p>'+esc(x.instructions||'')+'</p></div>').join(''):'<div class="empty">Nessun incarico assegnato oggi.</div>')+'</div></section>';
  if(admin&&(requests||pending))h+='<div class="notice">Da controllare: '+requests+' richieste materiali e '+pending+' bolle.</div>';
  $('#view').innerHTML=h;
+ const quickBar=document.querySelector('.mobile-head');if(quickBar)$('#view').querySelector('.simple-home-hero').after(quickBar);
  $('#homeAddDdt').onclick=newMaterial;
  document.querySelectorAll('.simple-home-stat').forEach(x=>x.onclick=()=>{S.view=x.dataset.go;render()});
 }
