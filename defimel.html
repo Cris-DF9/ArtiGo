@@ -320,7 +320,7 @@ const sb=createClient(SUPABASE_URL,SUPABASE_KEY);
 const S={session:null,profile:null,jobs:[],assignments:[],reports:[],reportMaterials:[],materials:[],delivery:[],deliveryItems:[],appointments:[],people:[],view:'home'};
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c])),today=()=>new Date().toLocaleDateString('sv-SE'),fmt=d=>d?new Date(d+'T12:00:00').toLocaleDateString('it-IT'):'—';
 const showError=(el,msg)=>el.innerHTML=msg?'<div class="error">'+esc(msg)+'</div>':'';
-function validAddress(v){const s=String(v||'').trim();return /[A-Za-zÀ-ÿ]/.test(s)&&/\b\d+[A-Za-z]?(?:[\/-][A-Za-z0-9]+)?(?:\s*(?:bis|ter|quater))?\s*$/i.test(s)}
+function validAddress(v){const s=String(v||'').trim();return /[A-Za-zÀ-ÿ]/.test(s)&&/\b\d+[A-Za-z]?(?:[\/-][A-Za-z0-9]+)?(?:\s*(?:bis|ter|quater))?(?=\s*(?:$|[,;]|\s+-\s+))/i.test(s)}
 function addressError(){return 'Inserisci via/piazza e numero civico (es. Via Roma 12).'}
 
 function openModal(html){$('#modalBody').innerHTML=html;$('#modal').classList.remove('hide')} function closeModal(){$('#modal').classList.add('hide');$('#modalBody').style.width=''}
