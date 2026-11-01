@@ -51,7 +51,24 @@
 <option value="">Categoria principale</option>
 <option>Elettricista</option><option>Idraulico</option><option>Fabbro</option><option>Falegname</option><option>Cartongessista</option><option>Giardiniere</option><option>Edilizia</option>
 </select>
-<input id="pa" placeholder="Zona di lavoro (es. Belluno e provincia)">
+<select id="pa">
+<option value="">Area principale di lavoro</option>
+<option>Belluno e provincia</option>
+<option>Vittorio Veneto e dintorni</option>
+<option>Conegliano e dintorni</option>
+<option>Treviso e dintorni</option>
+<option>Pordenone e dintorni</option>
+<option>Udine e dintorni</option>
+</select>
+<select id="pa2">
+<option value="">Altra area servita (facoltativa)</option>
+<option>Belluno e provincia</option>
+<option>Vittorio Veneto e dintorni</option>
+<option>Conegliano e dintorni</option>
+<option>Treviso e dintorni</option>
+<option>Pordenone e dintorni</option>
+<option>Udine e dintorni</option>
+</select>
 <input id="pba" class="full" placeholder="Sede legale completa">
 </div>
 <button id="submitBtn" class="submit" onclick="signupPro()">Registrati gratuitamente</button>
@@ -78,7 +95,7 @@
 
 <section class="final">
 <h2>Vuoi essere tra i primi professionisti Faberio?</h2>
-<p>Registrati ora e completa il profilo. Stiamo costruendo la rete territoriale partendo dal Veneto e dalle aree limitrofe.</p>
+<p>Registrati ora e completa il profilo. Stiamo costruendo la rete territoriale tra Belluno, Vittorio Veneto, Conegliano, Treviso, Pordenone e Udine.</p>
 <a class="cta" href="#registrazione">Registrati come Professionista →</a>
 </section>
 
@@ -94,13 +111,13 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&
 function validVat(value){const v=String(value).toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^IT/,'');if(!/^\d{11}$/.test(v))return false;let s=0;for(let i=0;i<11;i++){let d=+v[i];if((i+1)%2===0){d*=2;if(d>9)d-=9}s+=d}return s%10===0}
 async function signupPro(){
  const btn=e('submitBtn'); const msg=e('msg'); msg.innerHTML='';
- const full_name=e('pn').value.trim(),email=e('pe').value.trim(),password=e('pp').value,phone=e('pt').value.trim(),business_name=e('pb').value.trim(),vat_number=e('pv').value.trim(),business_address=e('pba').value.trim(),pec=e('ppec').value.trim(),category=e('pc').value,area=e('pa').value.trim();
+ const full_name=e('pn').value.trim(),email=e('pe').value.trim(),password=e('pp').value,phone=e('pt').value.trim(),business_name=e('pb').value.trim(),vat_number=e('pv').value.trim(),business_address=e('pba').value.trim(),pec=e('ppec').value.trim(),category=e('pc').value,area=e('pa').value,area2=e('pa2').value;
  if(!full_name||!email||!password||!phone||!business_name||!vat_number||!business_address||!pec||!category||!area){msg.innerHTML='<span class="err">Compila tutti i campi.</span>';return}
  if(!validVat(vat_number)){msg.innerHTML='<span class="err">La partita IVA non è formalmente valida.</span>';return}
  btn.disabled=true;btn.textContent='Registrazione in corso...';
  const cleanVat=vat_number.toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^IT/,'');
  try{
-   const r=await sb.auth.signUp({email,password,options:{data:{full_name,phone,signup_kind:'professionista',business_name,vat_number:cleanVat,business_address,pec,categories:[category],service_areas:[area],acquisition_source:ref,founder_launch:true},emailRedirectTo:SITE}});
+   const r=await sb.auth.signUp({email,password,options:{data:{full_name,phone,signup_kind:'professionista',business_name,vat_number:cleanVat,business_address,pec,categories:[category],service_areas:[area,area2].filter(Boolean),acquisition_source:ref,founder_launch:true},emailRedirectTo:SITE}});
    if(r.error)throw r.error;
    msg.innerHTML='<span class="ok"><b>Registrazione completata.</b> Controlla la tua email e conferma l’indirizzo per proseguire.</span>';
    btn.textContent='Controlla la tua email';
