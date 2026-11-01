@@ -1,0 +1,330 @@
+{
+  "grants": [
+    {
+      "table_name": "profiles",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "profiles",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "profiles",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "profiles",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "profiles",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "profiles",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "profiles",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "material_requests",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "material_requests",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "material_requests",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "material_requests",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "material_requests",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "material_requests",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "material_requests",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "delivery_notes",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "delivery_notes",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "delivery_notes",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "delivery_notes",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "delivery_notes",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "delivery_notes",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "delivery_notes",
+      "privilege_type": "TRIGGER"
+    },
+    {
+      "table_name": "delivery_note_items",
+      "privilege_type": "INSERT"
+    },
+    {
+      "table_name": "delivery_note_items",
+      "privilege_type": "SELECT"
+    },
+    {
+      "table_name": "delivery_note_items",
+      "privilege_type": "UPDATE"
+    },
+    {
+      "table_name": "delivery_note_items",
+      "privilege_type": "DELETE"
+    },
+    {
+      "table_name": "delivery_note_items",
+      "privilege_type": "TRUNCATE"
+    },
+    {
+      "table_name": "delivery_note_items",
+      "privilege_type": "REFERENCES"
+    },
+    {
+      "table_name": "delivery_note_items",
+      "privilege_type": "TRIGGER"
+    }
+  ],
+  "tables": [
+    {
+      "columns": "id uuid default gen_random_uuid() not null,delivery_note_id uuid not null,code text default ''::text not null,name text not null,qty numeric not null,unit text default 'pz'::text not null,linked_material_request_id uuid,confidence numeric,created_at timestamptz default now() not null,unit_price numeric,price_basis text,line_total numeric",
+      "table_name": "delivery_note_items"
+    },
+    {
+      "columns": "id uuid default gen_random_uuid() not null,job_id uuid not null,uploaded_by uuid not null,supplier text default ''::text not null,document_number text default ''::text not null,document_date date,photo_path text default ''::text not null,status text default 'pending_review'::text not null,raw_ocr_text text default ''::text not null,notes text default ''::text not null,confirmed_by uuid,confirmed_at timestamptz,created_at timestamptz default now() not null,updated_at timestamptz default now() not null",
+      "table_name": "delivery_notes"
+    },
+    {
+      "columns": "id uuid default gen_random_uuid() not null,job_id uuid not null,requested_by uuid not null,name text not null,code text default ''::text not null,qty numeric not null,unit text default 'pz'::text not null,needed_by date,priority text default 'normal'::text not null,note text default ''::text not null,status text default 'requested'::text not null,ordered_at timestamptz,received_at timestamptz,supplier text default ''::text not null,created_at timestamptz default now() not null,updated_at timestamptz default now() not null",
+      "table_name": "material_requests"
+    },
+    {
+      "columns": "id uuid not null,email text not null,full_name text default ''::text not null,role text default 'worker'::text not null,active bool default false not null,created_at timestamptz default now() not null,updated_at timestamptz default now() not null",
+      "table_name": "profiles"
+    }
+  ],
+  "helpers": [
+    "CREATE OR REPLACE FUNCTION app_private.is_admin()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'app_private'\nAS $function$\n  select exists(\n    select 1 from public.profiles p\n    where p.id = auth.uid() and p.active and p.role='admin'\n  );\n$function$\n",
+    "CREATE OR REPLACE FUNCTION app_private.is_secretary()\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'app_private'\nAS $function$\n  select exists(\n    select 1 from public.profiles p\n    where p.id = auth.uid() and p.active and p.role='secretary'\n  );\n$function$\n",
+    "CREATE OR REPLACE FUNCTION app_private.job_accessible(p_job uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'app_private'\nAS $function$\n  select\n    app_private.is_admin()\n    or app_private.is_secretary()\n    or exists(\n      select 1\n      from public.jobs j\n      join public.profiles p on p.id = auth.uid()\n      where j.id = p_job\n        and p.active\n        and p.role = 'worker'\n        and (\n          j.status = 'active'\n          or j.created_by = auth.uid()\n          or exists(\n            select 1\n            from public.assignments a\n            where a.job_id = j.id\n              and a.worker_id = auth.uid()\n          )\n        )\n    );\n$function$\n"
+  ],
+  "policies": [
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "tablename": "delivery_note_items",
+      "policyname": "delivery_items_insert",
+      "with_check": "((EXISTS ( SELECT 1\n   FROM delivery_notes d\n  WHERE ((d.id = delivery_note_items.delivery_note_id) AND (d.uploaded_by = auth.uid()) AND (d.status = 'pending_review'::text)))) OR app_private.is_admin())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(app_private.is_admin() OR app_private.is_secretary() OR (EXISTS ( SELECT 1\n   FROM delivery_notes d\n  WHERE ((d.id = delivery_note_items.delivery_note_id) AND (d.uploaded_by = auth.uid())))))",
+      "tablename": "delivery_note_items",
+      "policyname": "delivery_items_select",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(app_private.is_admin() OR (EXISTS ( SELECT 1\n   FROM delivery_notes d\n  WHERE ((d.id = delivery_note_items.delivery_note_id) AND (d.uploaded_by = auth.uid()) AND (d.status = 'pending_review'::text)))))",
+      "tablename": "delivery_note_items",
+      "policyname": "delivery_items_update",
+      "with_check": "(app_private.is_admin() OR (EXISTS ( SELECT 1\n   FROM delivery_notes d\n  WHERE ((d.id = delivery_note_items.delivery_note_id) AND (d.uploaded_by = auth.uid()) AND (d.status = 'pending_review'::text)))))"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "app_private.is_admin()",
+      "tablename": "delivery_notes",
+      "policyname": "delivery_notes_admin_delete",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "app_private.is_admin()",
+      "tablename": "delivery_notes",
+      "policyname": "delivery_notes_admin_update",
+      "with_check": "app_private.is_admin()"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "tablename": "delivery_notes",
+      "policyname": "delivery_notes_insert",
+      "with_check": "((uploaded_by = auth.uid()) AND (status = 'pending_review'::text) AND app_private.job_accessible(job_id))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(app_private.is_admin() OR app_private.is_secretary() OR (uploaded_by = auth.uid()))",
+      "tablename": "delivery_notes",
+      "policyname": "delivery_notes_select",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "((uploaded_by = auth.uid()) AND (status = 'pending_review'::text))",
+      "tablename": "delivery_notes",
+      "policyname": "delivery_notes_worker_update",
+      "with_check": "((uploaded_by = auth.uid()) AND (status = 'pending_review'::text))"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "tablename": "material_requests",
+      "policyname": "materials_admin_insert",
+      "with_check": "app_private.is_admin()"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "app_private.is_admin()",
+      "tablename": "material_requests",
+      "policyname": "materials_admin_update",
+      "with_check": "app_private.is_admin()"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(app_private.is_admin() OR app_private.is_secretary() OR (requested_by = auth.uid()))",
+      "tablename": "material_requests",
+      "policyname": "materials_select",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "tablename": "material_requests",
+      "policyname": "materials_worker_insert",
+      "with_check": "((requested_by = auth.uid()) AND (status = 'requested'::text) AND app_private.job_accessible(job_id))"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "((requested_by = auth.uid()) AND (status = 'requested'::text))",
+      "tablename": "material_requests",
+      "policyname": "materials_worker_update",
+      "with_check": "((requested_by = auth.uid()) AND (status = 'requested'::text))"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "app_private.is_admin()",
+      "tablename": "profiles",
+      "policyname": "profiles_admin_update",
+      "with_check": "app_private.is_admin()"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "app_private.is_secretary()",
+      "tablename": "profiles",
+      "policyname": "profiles_secretary_select",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((id = auth.uid()) OR app_private.is_admin())",
+      "tablename": "profiles",
+      "policyname": "profiles_self_or_admin_select",
+      "with_check": null
+    }
+  ],
+  "constraints": [
+    {
+      "def": "FOREIGN KEY (job_id) REFERENCES jobs(id)",
+      "tbl": "material_requests",
+      "conname": "material_requests_job_id_fkey"
+    },
+    {
+      "def": "PRIMARY KEY (id)",
+      "tbl": "material_requests",
+      "conname": "material_requests_pkey"
+    },
+    {
+      "def": "CHECK ((priority = ANY (ARRAY['normal'::text, 'urgent'::text])))",
+      "tbl": "material_requests",
+      "conname": "material_requests_priority_check"
+    },
+    {
+      "def": "CHECK ((qty > (0)::numeric))",
+      "tbl": "material_requests",
+      "conname": "material_requests_qty_check"
+    },
+    {
+      "def": "FOREIGN KEY (requested_by) REFERENCES profiles(id)",
+      "tbl": "material_requests",
+      "conname": "material_requests_requested_by_fkey"
+    },
+    {
+      "def": "CHECK ((status = ANY (ARRAY['requested'::text, 'ordered'::text, 'received'::text, 'cancelled'::text])))",
+      "tbl": "material_requests",
+      "conname": "material_requests_status_check"
+    },
+    {
+      "def": "FOREIGN KEY (confirmed_by) REFERENCES profiles(id)",
+      "tbl": "delivery_notes",
+      "conname": "delivery_notes_confirmed_by_fkey"
+    },
+    {
+      "def": "FOREIGN KEY (job_id) REFERENCES jobs(id)",
+      "tbl": "delivery_notes",
+      "conname": "delivery_notes_job_id_fkey"
+    },
+    {
+      "def": "PRIMARY KEY (id)",
+      "tbl": "delivery_notes",
+      "conname": "delivery_notes_pkey"
+    },
+    {
+      "def": "CHECK ((status = ANY (ARRAY['pending_review'::text, 'confirmed'::text, 'cancelled'::text])))",
+      "tbl": "delivery_notes",
+      "conname": "delivery_notes_status_check"
+    },
+    {
+      "def": "FOREIGN KEY (uploaded_by) REFERENCES profiles(id)",
+      "tbl": "delivery_notes",
+      "conname": "delivery_notes_uploaded_by_fkey"
+    },
+    {
+      "def": "FOREIGN KEY (delivery_note_id) REFERENCES delivery_notes(id) ON DELETE CASCADE",
+      "tbl": "delivery_note_items",
+      "conname": "delivery_note_items_delivery_note_id_fkey"
+    },
+    {
+      "def": "FOREIGN KEY (linked_material_request_id) REFERENCES material_requests(id)",
+      "tbl": "delivery_note_items",
+      "conname": "delivery_note_items_linked_material_request_id_fkey"
+    },
+    {
+      "def": "PRIMARY KEY (id)",
+      "tbl": "delivery_note_items",
+      "conname": "delivery_note_items_pkey"
+    },
+    {
+      "def": "CHECK ((qty > (0)::numeric))",
+      "tbl": "delivery_note_items",
+      "conname": "delivery_note_items_qty_check"
+    }
+  ]
+}
