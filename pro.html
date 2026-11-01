@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Faberio Pro | Ricevi richieste di lavoro nella tua zona</title>
+<meta name="description" content="Entra nella rete Faberio. Ricevi richieste di lavoro nella tua zona, scegli quelle che ti interessano e invia la tua proposta.">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
+<meta name="theme-color" content="#087a46">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--g:#087a46;--gd:#065f38;--ink:#17231c;--mu:#66736b;--bg:#edf5ef;--card:#fff;--line:#d8e7dc;--mint:#dff2e6;--warm:#f6efe5}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Arial,sans-serif;color:var(--ink);background:linear-gradient(145deg,#edf5ef 0%,#f7faf8 56%,#e8f2eb 100%)}a{text-decoration:none;color:inherit}.wrap{width:min(1120px,92vw);margin:auto}.top{display:flex;justify-content:space-between;align-items:center;padding:18px 0}.logo img{width:180px;height:auto;display:block}.toplink{font-size:14px;font-weight:800;color:var(--g)}.hero{display:grid;grid-template-columns:1.06fr .94fr;gap:28px;align-items:stretch;padding:30px 0 42px}.heroLead{background:linear-gradient(135deg,var(--g),var(--gd));color:#fff;border-radius:34px;padding:46px;box-shadow:0 20px 55px rgba(8,122,70,.18);display:flex;flex-direction:column;justify-content:center}.eyebrow{font-size:12px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;opacity:.92}.hero h1{font-size:clamp(40px,5vw,64px);line-height:1.02;margin:12px 0 18px}.heroLead p{font-size:18px;line-height:1.55;margin:0 0 24px;max-width:650px;opacity:.95}.heroPoints{display:grid;gap:10px;margin:0 0 26px}.heroPoint{display:flex;gap:10px;align-items:flex-start}.heroPoint b{font-size:15px}.check{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.16);flex:0 0 auto}.cta{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:16px;padding:15px 20px;background:#fff;color:var(--g);font-weight:900;font-size:16px;cursor:pointer}.formCard{background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:30px;padding:30px;box-shadow:0 14px 38px rgba(23,35,28,.08)}.founder{display:inline-block;background:var(--mint);color:var(--g);padding:8px 12px;border-radius:999px;font-size:12px;font-weight:900}.formCard h2{font-size:29px;margin:14px 0 7px}.sub{color:var(--mu);line-height:1.5;margin:0 0 18px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}input,select{width:100%;padding:13px 14px;border:1px solid var(--line);border-radius:14px;margin:6px 0;background:#fbfdfb;font:inherit;outline:none}input:focus,select:focus{border-color:#8fc7a6;box-shadow:0 0 0 3px rgba(8,122,70,.08)}.full{grid-column:1/-1}.submit{width:100%;border:0;border-radius:16px;padding:15px;background:linear-gradient(135deg,var(--g),var(--gd));color:#fff;font-weight:900;font-size:16px;cursor:pointer;margin-top:9px}.mini{font-size:12px;color:var(--mu);line-height:1.45}.msg{font-size:13px;margin-top:10px}.ok{color:var(--g)}.err{color:#a33}.section{padding:26px 0 48px}.sectionHead{text-align:center;max-width:760px;margin:0 auto 26px}.sectionHead h2{font-size:36px;margin:0 0 10px}.sectionHead p{color:var(--mu);font-size:17px;line-height:1.55}.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.step{background:#fff;border:1px solid var(--line);border-radius:24px;padding:24px}.num{width:42px;height:42px;border-radius:13px;background:var(--mint);color:var(--g);display:grid;place-items:center;font-weight:900}.step h3{font-size:21px;margin:16px 0 8px}.step p{color:var(--mu);line-height:1.5;margin:0}.benefits{display:grid;grid-template-columns:1fr 1fr;gap:18px}.benefit{background:#173126;color:white;border-radius:28px;padding:28px}.benefit.alt{background:var(--warm);color:var(--ink)}.benefit h3{font-size:25px;margin:0 0 12px}.benefit p{line-height:1.55;margin:0;opacity:.9}.final{margin:20px auto 60px;background:#fff;border:1px solid var(--line);border-radius:30px;padding:34px;text-align:center}.final h2{font-size:34px;margin:0 0 10px}.final p{color:var(--mu);font-size:17px;line-height:1.5}.final .cta{background:var(--g);color:#fff}.foot{padding:0 0 34px;color:var(--mu);font-size:12px;text-align:center}
+@media(max-width:820px){.wrap{width:calc(100% - 28px)}.top{padding:14px 0}.logo img{width:156px}.hero{grid-template-columns:1fr;padding-top:10px}.heroLead{padding:30px 24px;border-radius:27px}.hero h1{font-size:42px}.formCard{padding:22px;border-radius:24px}.grid2{grid-template-columns:1fr}.full{grid-column:auto}.steps{grid-template-columns:1fr}.benefits{grid-template-columns:1fr}.sectionHead h2{font-size:31px}.final{padding:26px 20px;border-radius:24px}.final h2{font-size:29px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+<a class="logo" href="/" aria-label="Faberio"><img src="/assets/faberio-logo-desktop.svg?v=3" alt="Faberio"></a>
+<a class="toplink" href="/">Vai al sito Faberio →</a>
+</header>
+
+<section class="hero">
+<div class="heroLead">
+<div class="eyebrow">FABERIO PER PROFESSIONISTI</div>
+<h1>Più opportunità.<br>Solo nella tua zona.</h1>
+<p>Ricevi richieste di lavoro da clienti che stanno cercando un professionista. Sei tu a decidere a quali rispondere.</p>
+<div class="heroPoints">
+<div class="heroPoint"><span class="check">✓</span><b>Nessun abbonamento mensile</b></div>
+<div class="heroPoint"><span class="check">✓</span><b>Scegli tu i lavori che ti interessano</b></div>
+<div class="heroPoint"><span class="check">✓</span><b>Imposti la zona in cui vuoi lavorare</b></div>
+<div class="heroPoint"><span class="check">✓</span><b>Profilo verificato per aumentare la fiducia dei clienti</b></div>
+</div>
+<a class="cta" href="#registrazione">Diventa Professionista Faberio →</a>
+</div>
+
+<div class="formCard" id="registrazione">
+<span class="founder">ACCESSO LANCIO · PROFESSIONISTI FONDATORI</span>
+<h2>Entra nella rete Faberio</h2>
+<p class="sub">Registrazione gratuita. Dopo la conferma email completerai la verifica del profilo professionale.</p>
+<div class="grid2">
+<input id="pn" placeholder="Nome e cognome">
+<input id="pe" type="email" placeholder="Email">
+<input id="pp" type="password" placeholder="Password">
+<input id="pt" type="tel" placeholder="Numero di telefono">
+<input id="pb" class="full" placeholder="Ragione sociale / Nome attività">
+<input id="pv" inputmode="numeric" maxlength="13" placeholder="Partita IVA">
+<input id="ppec" type="email" placeholder="PEC">
+<select id="pc">
+<option value="">Categoria principale</option>
+<option>Elettricista</option><option>Idraulico</option><option>Fabbro</option><option>Falegname</option><option>Cartongessista</option><option>Giardiniere</option><option>Edilizia</option>
+</select>
+<input id="pa" placeholder="Zona di lavoro (es. Belluno e provincia)">
+<input id="pba" class="full" placeholder="Sede legale completa">
+</div>
+<button id="submitBtn" class="submit" onclick="signupPro()">Registrati gratuitamente</button>
+<p class="mini">Nessun obbligo di accettare lavori. I dati professionali saranno verificati prima dell'abilitazione alle offerte.</p>
+<div id="msg" class="msg"></div>
+</div>
+</section>
+
+<section class="section">
+<div class="sectionHead"><h2>Come funziona</h2><p>Faberio ti mette davanti opportunità concrete. Niente preventivi obbligatori e niente lavori assegnati automaticamente.</p></div>
+<div class="steps">
+<article class="step"><div class="num">1</div><h3>Ricevi una richiesta</h3><p>Visualizzi le richieste disponibili nella tua zona e nella tua categoria.</p></article>
+<article class="step"><div class="num">2</div><h3>Decidi se ti interessa</h3><p>Se il lavoro è adatto a te, invii importo, disponibilità e una breve nota.</p></article>
+<article class="step"><div class="num">3</div><h3>Il cliente sceglie</h3><p>Se la tua proposta viene accettata, ricevi i dati necessari per organizzare l'intervento.</p></article>
+</div>
+</section>
+
+<section class="section">
+<div class="benefits">
+<article class="benefit"><h3>Non devi cercare clienti ogni giorno.</h3><p>Le richieste arrivano nella piattaforma. Tu valuti solo quelle che hanno senso per il tuo lavoro, i tuoi tempi e la tua zona.</p></article>
+<article class="benefit alt"><h3>Sei tu a mantenere il controllo.</h3><p>Nessun obbligo di risposta, nessun calendario imposto e nessun abbonamento da pagare per restare nella rete.</p></article>
+</div>
+</section>
+
+<section class="final">
+<h2>Vuoi essere tra i primi professionisti Faberio?</h2>
+<p>Registrati ora e completa il profilo. Stiamo costruendo la rete territoriale partendo dal Veneto e dalle aree limitrofe.</p>
+<a class="cta" href="#registrazione">Registrati come Professionista →</a>
+</section>
+
+<footer class="foot">© 2026 Faberio · Piattaforma per clienti e professionisti</footer>
+</div>
+
+<script>
+const sb=window.supabase.createClient('https://vysvbfwwcckrnnphtprq.supabase.co','sb_publishable_NMhJX4hqkHbVHYEFnO6I4w_783xTDZY');
+const SITE='https://faberio.it/auth-callback.html';
+const ref=new URLSearchParams(location.search).get('ref')||'faberio-pro';
+const e=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+function validVat(value){const v=String(value).toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^IT/,'');if(!/^\d{11}$/.test(v))return false;let s=0;for(let i=0;i<11;i++){let d=+v[i];if((i+1)%2===0){d*=2;if(d>9)d-=9}s+=d}return s%10===0}
+async function signupPro(){
+ const btn=e('submitBtn'); const msg=e('msg'); msg.innerHTML='';
+ const full_name=e('pn').value.trim(),email=e('pe').value.trim(),password=e('pp').value,phone=e('pt').value.trim(),business_name=e('pb').value.trim(),vat_number=e('pv').value.trim(),business_address=e('pba').value.trim(),pec=e('ppec').value.trim(),category=e('pc').value,area=e('pa').value.trim();
+ if(!full_name||!email||!password||!phone||!business_name||!vat_number||!business_address||!pec||!category||!area){msg.innerHTML='<span class="err">Compila tutti i campi.</span>';return}
+ if(!validVat(vat_number)){msg.innerHTML='<span class="err">La partita IVA non è formalmente valida.</span>';return}
+ btn.disabled=true;btn.textContent='Registrazione in corso...';
+ const cleanVat=vat_number.toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^IT/,'');
+ try{
+   const r=await sb.auth.signUp({email,password,options:{data:{full_name,phone,signup_kind:'professionista',business_name,vat_number:cleanVat,business_address,pec,categories:[category],service_areas:[area],acquisition_source:ref,founder_launch:true},emailRedirectTo:SITE}});
+   if(r.error)throw r.error;
+   msg.innerHTML='<span class="ok"><b>Registrazione completata.</b> Controlla la tua email e conferma l’indirizzo per proseguire.</span>';
+   btn.textContent='Controlla la tua email';
+ }catch(err){
+   msg.innerHTML='<span class="err">'+esc(err.message||'Registrazione non riuscita')+'</span>';
+   btn.disabled=false;btn.textContent='Registrati gratuitamente';
+ }
+}
+</script>
+</body>
+</html>
