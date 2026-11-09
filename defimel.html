@@ -351,7 +351,7 @@ function uiIcon(n){let p={home:'<path d="m3 10 9-7 9 7v11h-6v-7H9v7H3z"/>',jobs:
 function buildNav(){
  const items=S.profile.role==='secretary'?[['home','Home'],['jobs','Cantieri'],['reports','Rapportini'],['materials','Materiali'],['delivery','Bolle/DDT']]:[['home','Home'],['jobs','Cantieri'],['schedule','Programmazione'],['reports','Rapportini'],['materials','Materiali'],['delivery','Bolle/DDT'],...(S.profile.role==='admin'?[['smallJobs','Lavori da fare'],['appointments','Appuntamenti'],['absences','Assenze'],['team','Squadra']]:[])];
  $('#nav').innerHTML=items.map(x=>'<button class="nav-core" data-v="'+x[0]+'">'+uiIcon(x[0])+'<span>'+x[1]+'</span></button>').join('');
- document.querySelectorAll('#nav button[data-v]').forEach(b=>b.onclick=async()=>{S.view=b.dataset.v;await refresh();b.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'})});
+ document.querySelectorAll('#nav button[data-v]').forEach(b=>b.onclick=async()=>{if(b.dataset.v==='materials')S.materialRequestMode=false;S.view=b.dataset.v;await refresh();b.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'})});
 }
 const jobName=id=>S.jobs.find(x=>x.id===id)?.name||'Cantiere';const personName=id=>S.people.find(x=>x.id===id)?.full_name||(id===S.profile.id?S.profile.full_name:'Dipendente');
 function head(k,t,s,action=''){return '<div class="toolbar"><div><span class="ey">'+k+'</span><h1 class="title">'+t+'</h1><div class="sub">'+s+'</div></div>'+action+'</div>'}
@@ -374,7 +374,7 @@ function home(){
  $('#view').innerHTML=out;
  const quick=document.querySelector('.mobile-head');if(quick)$('#view').querySelector('.simple-home-hero').after(quick);
  $('#homeAddDdt').onclick=newMaterial;
- document.querySelectorAll('[data-go]').forEach(el=>el.onclick=()=>{S.view=el.dataset.go;render()});
+ document.querySelectorAll('[data-go]').forEach(el=>el.onclick=()=>{if(el.dataset.go==='materials')S.materialRequestMode=false;S.view=el.dataset.go;render()});
 }
 
 async function ensureXLSX(){
@@ -771,8 +771,9 @@ function materials(){
  const admin=S.profile.role==='admin';
  const selectable=S.jobs.filter(x=>x.status!=='archived'&&x.status!=='completed');
  const pending=S.materials.filter(x=>x.status==='requested');
- let h=head('APPROVVIGIONAMENTI','Richiesta materiali','Compila la richiesta per il cantiere. Il tuo nome viene inserito automaticamente.');
- h+='<section class="panel" style="padding:20px;max-width:760px"><label class="field">Cantiere<select id="matJob">'+selectable.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('')+'</select></label>'+
+ const showForm=!admin||S.materialRequestMode===true;
+ let h=showForm?head('APPROVVIGIONAMENTI','Richiesta materiali','Compila la richiesta per il cantiere. Il tuo nome viene inserito automaticamente.'):head('APPROVVIGIONAMENTI','Materiali da ordinare','Richieste in attesa di approvazione.');
+ if(showForm)h+='<section class="panel" style="padding:20px;max-width:760px"><label class="field">Cantiere<select id="matJob">'+selectable.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('')+'</select></label>'+
  '<div class="form-grid"><label class="field">Data in cui serve il materiale<input id="matNeeded" type="date" value="'+today()+'"></label><label class="field">Richiesto da<input type="text" value="'+esc(S.profile.full_name)+'" readonly aria-label="Richiesto da"></label></div>'+
  '<label class="field">Materiale occorrente<textarea id="matLines" rows="9" placeholder="Scrivi un materiale per riga. Es.:&#10;30 m cavo 3G2,5&#10;5 prese universali&#10;1 interruttore magnetotermico"></textarea></label>'+
  '<div class="notice">Scrivi una voce per riga. Puoi indicare quantità e unità (es. 30 m, 5 pz). Se non specifichi la quantità, viene considerato 1 pz.</div>'+
@@ -783,7 +784,7 @@ function materials(){
   '</div><div id="matAcceptError" role="alert"></div></section>';
  }
  $('#view').innerHTML=h;
- $('#matSubmit').onclick=async()=>{
+ if(showForm)$('#matSubmit').onclick=async()=>{
   const btn=$('#matSubmit'),jobId=$('#matJob').value,needed=$('#matNeeded').value;
   const lines=$('#matLines').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
   if(!jobId||!needed||!lines.length)return showError($('#matRequestError'),'Seleziona cantiere, data e almeno un materiale.');
@@ -813,7 +814,7 @@ function materials(){
   }catch(e){b.disabled=false;showError($('#matAcceptError'),'Impossibile accettare: '+e.message)}
  });
 }
-function newMaterial(){S.view='materials';render()}
+function newMaterial(){S.materialRequestMode=true;S.view='materials';render()}
 async function setMaterial(id,status){await sb.from('material_requests').update({status,...(status==='ordered'?{ordered_at:new Date().toISOString()}:{received_at:new Date().toISOString()})}).eq('id',id);refresh()}
 function ddtPriceDivisor(basis){const b=String(basis||'').trim().toUpperCase();if(b==='/D')return 10;if(b==='/C')return 100;if(b==='/M')return 1000;const m=b.match(/X\s*([\d.,]+)/i);if(m){let s=m[1].replace(/\./g,'').replace(',','.');const n=Number(s);return n>0?n:1}return 1}
 function ddtLineTotal(x){const saved=Number(x.line_total);if(Number.isFinite(saved)&&saved>0)return saved;const q=Number(x.qty||0),p=Number(x.unit_price);if(!Number.isFinite(p))return null;return q*p/ddtPriceDivisor(x.price_basis)}
