@@ -788,7 +788,7 @@ function delivery(){
  $('#ddtCards').innerHTML=rows.length?rows.map(x=>'<div class="item sj-ddt-card"><div class="row"><b>'+esc(x.supplier||'Fornitore')+'</b><span class="badge '+(x.status==='confirmed'?'ok':'req')+'">'+(x.status==='confirmed'?'Confermata':'Da verificare')+'</span></div><p>'+esc(jobName(x.job_id))+' · DDT '+esc(x.document_number||'—')+'</p><small class="muted">'+fmt(x.document_date)+' · '+euro(ddtTotal(x.id))+'</small><div class="actions" style="justify-content:flex-start"><button class="btn alt openDeliveryDetail" data-id="'+esc(x.id)+'">Apri dettagli</button>'+(admin&&x.status==='pending_review'?'<button class="btn green confirmDelivery" data-id="'+esc(x.id)+'">Conferma</button>':'')+(admin?'<button class="btn danger deleteDelivery" data-id="'+esc(x.id)+'">Elimina</button>':'')+'</div></div>').join(''):'<div class="empty">Nessuna bolla trovata.</div>';
  document.querySelectorAll('.openDeliveryDetail').forEach(el=>el.onclick=()=>openDeliveryDetail(el.dataset.id));
  document.querySelectorAll('.confirmDelivery').forEach(el=>el.onclick=()=>confirmDelivery(el.dataset.id));
- document.querySelectorAll('.deleteDelivery').forEach(el=>el.onclick=()=>deleteDelivery(el.dataset.id));
+ document.querySelectorAll('.deleteDelivery').forEach(el=>el.onclick=()=>deleteDelivery(el.dataset.id));addDeliveryRecoveryButtons();
  }
  $('#newDelivery').onclick=newDelivery;$('#ddtSearch').oninput=draw;$('#ddtPending').onclick=()=>{pendingOnly=true;draw()};$('#ddtAll').onclick=()=>{pendingOnly=false;draw()};draw();
 }
@@ -854,9 +854,119 @@ async function readKnownSupplierColumns(file,supplier){
 }
 
 function parseOCR(text){const ev=parseElettroveneta(text);if(ev&&ev.rows.length)return ev.rows;const ma=parseMarchiol(text);if(ma&&ma.rows.length)return ma.rows;const so=parseSonepar(text);if(so&&so.rows.length)return so.rows;const out=[];for(let s of text.split(/\n/)){s=s.trim();if(!s||/totale|firma|imponibile|iva/i.test(s))continue;let m=s.match(/^(.+?)\s+(\d+(?:[.,]\d+)?)\s+(PZ|NR|MT|M|KG|LT|L|CF|CONF|ROT|CAD)\b/i);if(m)out.push({name:m[1],qty:Number(m[2].replace(',','.')),unit:m[3].toLowerCase().replace('mt','m').replace('nr','pz'),unit_price:null})}return out.slice(0,60)}
-function newDelivery(){openModal('<h2>Fotografa bolla / DDT</h2><div class="notice">La lettura AI estrae automaticamente dati e righe del DDT. Controlla sempre i risultati prima di salvare.</div><label class="field">Cantiere<select id="ddtJob">'+S.jobs.filter(x=>x.status!=='archived'&&x.status!=='completed').map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('')+'</select></label><label class="field">Foto della bolla<input id="ddtPhoto" type="file" accept="image/*" capture="environment"></label><div class="form-grid"><label class="field">Fornitore<select id="ddtSupplier"><option value="">Riconosci automaticamente</option><option value="Elettroveneta">Elettroveneta</option><option value="Marchiol">Marchiol</option><option value="Sonepar">Sonepar</option><option value="Altro">Altro</option></select></label><label class="field">Numero DDT<input id="ddtNumber"></label><label class="field">Data<input id="ddtDate" type="date" value="'+today()+'"></label></div><div id="ocrStatus"></div><div id="ocrRows"></div><div id="ddtError"></div><div class="actions"><button class="btn alt" id="cancel">Annulla</button><button class="btn alt" id="readPhoto">Leggi con AI</button><button class="btn green" id="saveDdt" disabled>Salva bolla</button></div>');let raw='';$('#cancel').onclick=closeModal;$('#readPhoto').onclick=async()=>{const f=$('#ddtPhoto').files[0];if(!f)return showError($('#ddtError'),'Scatta o seleziona una foto.');$('#ocrStatus').innerHTML='<div class="notice">Lettura AI della bolla in corso…</div>';$('#readPhoto').disabled=true;try{const tmp=S.profile.id+'/ai-temp/'+crypto.randomUUID()+'-'+f.name.replace(/[^a-z0-9._-]/gi,'_');const up=await sb.storage.from('defimel-files').upload(tmp,f);if(up.error)throw up.error;let ai=null;try{const res=await sb.functions.invoke('defimel-ddt-ai',{body:{path:tmp}});if(res.error)throw res.error;if(res.data?.error)throw Error(res.data.message||res.data.error);ai=res.data}finally{await sb.storage.from('defimel-files').remove([tmp])}const rows=(ai?.items||[]).map(x=>({code:x.code||'',name:x.description||'',qty:Number(x.quantity||0),unit:x.unit||'pz',unit_price:Number(x.unit_price||0)||null,price_basis:x.price_basis||'',line_total:Number(x.line_total||0)||null})).filter(x=>x.name&&x.qty>0);if(ai?.supplier){const s=String(ai.supplier).toLowerCase();$('#ddtSupplier').value=s.includes('elettroveneta')?'Elettroveneta':s.includes('marchiol')?'Marchiol':s.includes('sonepar')?'Sonepar':'Altro';}if(ai?.document_number)$('#ddtNumber').value=ai.document_number;if(ai?.document_date)$('#ddtDate').value=ai.document_date;raw=JSON.stringify(ai||{});if(!rows.length)throw Error('Nessuna riga articolo riconosciuta');$('#ocrRows').innerHTML=rows.map(x=>'<div class="ocr-row"><input class="ocrCode" placeholder="Codice" value="'+esc(x.code||'')+'"><input class="ocrName" placeholder="Materiale" value="'+esc(x.name)+'"><input class="ocrQty" type="number" step=".001" value="'+x.qty+'"><input class="ocrUnit" value="'+esc(x.unit)+'"><input class="ocrPrice" type="number" step=".00001" placeholder="Prezzo" value="'+(x.unit_price??'')+'"><input class="ocrBasis" placeholder="x 1.000 / /C" value="'+esc(x.price_basis||'')+'"><input class="ocrLineTotal" type="number" step=".01" placeholder="Importo" value="'+(x.line_total??'')+'"><button class="btn danger removeOcr" type="button">×</button></div>').join('');document.querySelectorAll('.removeOcr').forEach(b=>b.onclick=()=>b.parentElement.remove());$('#ocrStatus').innerHTML='<div class="notice"><b>'+rows.length+' righe lette con AI.</b> Controllale prima di salvare.</div>';$('#saveDdt').disabled=false}catch(e){$('#ocrStatus').innerHTML='<div class="error">Lettura AI non disponibile: '+esc(e.message||'errore')+'.</div>';$('#saveDdt').disabled=true}finally{$('#readPhoto').disabled=false}};$('#saveDdt').onclick=async()=>{const btn=$('#saveDdt'),f=$('#ddtPhoto').files[0],rows=[...document.querySelectorAll('.ocr-row')].map(r=>({code:(r.querySelector('.ocrCode')?.value||'').trim(),name:r.querySelector('.ocrName').value.trim(),qty:Number(r.querySelector('.ocrQty').value),unit:r.querySelector('.ocrUnit').value||'pz',unit_price:r.querySelector('.ocrPrice')?.value?Number(r.querySelector('.ocrPrice').value):null,price_basis:(r.querySelector('.ocrBasis')?.value||'').trim(),line_total:r.querySelector('.ocrLineTotal')?.value?Number(r.querySelector('.ocrLineTotal').value):null})).filter(x=>x.name&&x.qty>0);if(!f||!rows.length)return showError($('#ddtError'),'Foto e materiali sono obbligatori.');const jobId=$('#ddtJob').value,docNo=$('#ddtNumber').value.trim(),docDate=$('#ddtDate').value,supplier=$('#ddtSupplier').value;btn.disabled=true;btn.textContent='Salvataggio…';showError($('#ddtError'),'');try{if(docNo){const{data:existing,error:findErr}=await sb.from('delivery_notes').select('id').eq('job_id',jobId).eq('document_number',docNo).eq('document_date',docDate).limit(1);if(findErr)throw findErr;if(existing?.length){closeModal();await refresh();return}}const path=S.profile.id+'/'+crypto.randomUUID()+'-'+f.name.replace(/[^a-z0-9._-]/gi,'_');const up=await sb.storage.from('defimel-files').upload(path,f);if(up.error)throw up.error;const{data:n,error}=await sb.from('delivery_notes').insert({job_id:jobId,uploaded_by:S.profile.id,supplier,document_number:docNo,document_date:docDate,photo_path:path,raw_ocr_text:raw,status:'pending_review'}).select('id').single();if(error)throw error;const{error:itemErr}=await sb.from('delivery_note_items').insert(rows.map(x=>({...x,delivery_note_id:n.id})));if(itemErr)throw itemErr;closeModal();await refresh()}catch(e){if(docNo){try{const{data:existing}=await sb.from('delivery_notes').select('id').eq('job_id',jobId).eq('document_number',docNo).eq('document_date',docDate).limit(1);if(existing?.length){closeModal();await refresh();return}}catch(_){}}showError($('#ddtError'),e.message==='Load failed'?'Connessione momentaneamente instabile. Riprova tra qualche secondo.':e.message)}finally{if(btn?.isConnected){btn.disabled=false;btn.textContent='Salva bolla'}}}}
+// Atomic DDT operations. Journal is scoped to the signed-in user; no auth tokens.
+function deliveryJournalKey(){return 'defimel-ddt-operation-v1:'+S.profile.id}
+function readDeliveryOperation(){
+  const prefix=deliveryJournalKey()+':';
+  for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i);
+    if(key.startsWith(prefix)&&!key.endsWith(':probe'))return JSON.parse(localStorage.getItem(key));
+  }
+  return null;
+}
+function writeDeliveryOperation(op){localStorage.setItem(deliveryJournalKey()+':'+op.p_id,JSON.stringify(op))}
+async function submitDeliveryOperation(op){
+  const {data,error}=await sb.rpc('defimel_save_delivery',op);
+  if(error){
+    // A SQL error is a definite rollback. Transport errors have an unknown outcome.
+    if(error.code==='PGRST202'||(/^[0-9A-Z]{5}$/.test(error.code||'') && !String(error.code).startsWith('PGRST'))){
+      localStorage.removeItem(deliveryJournalKey()+':'+op.p_id);
+    }
+    throw error;
+  }
+  if(data!==op.p_id)throw Error('Risposta non verificabile. Riprova il recupero del salvataggio.');
+  localStorage.removeItem(deliveryJournalKey()+':'+op.p_id);
+  return data;
+}
+function deliverySaveError(e){
+  if(e.code==='PGRST202')return 'Salvataggio sicuro non ancora attivato sul server. Contatta l’amministratore.';
+  return e.message||'Esito non verificabile. Riapri Inserisci bolla per riprendere il salvataggio.';
+}
+async function resumeDeliveryOperation(op){
+  try{await submitDeliveryOperation(op);await refresh();alert('Bolla salvata correttamente.');}
+  catch(e){alert(deliverySaveError(e));}
+}
+function addDeliveryRecoveryButtons(){
+  if(S.profile.role!=='admin')return;
+  document.querySelectorAll('.deleteDelivery').forEach(el=>{
+    const d=S.delivery.find(x=>x.id===el.dataset.id);
+    if(!d||d.status!=='pending_review'||S.deliveryItems.some(x=>x.delivery_note_id===d.id))return;
+    const b=document.createElement('button');b.className='btn alt';b.textContent='Recupera materiali';
+    b.onclick=()=>newDelivery(d.id);el.before(b);
+  });
+}
+function newDelivery(recoveryId){
+  let pending;
+  try{pending=readDeliveryOperation()}catch(e){alert('Archivio locale non disponibile: '+e.message);return;}
+  if(pending){
+    if(confirm('È presente un salvataggio da verificare. Riprenderlo con gli stessi dati?'))resumeDeliveryOperation(pending);
+    return;
+  }
+  const recovery=typeof recoveryId==='string'?S.delivery.find(x=>x.id===recoveryId):null;
+  if(recovery&&(S.profile.role!=='admin'||recovery.status!=='pending_review'))return;
+openModal('<h2>Fotografa bolla / DDT</h2><div class="notice">La lettura AI estrae automaticamente dati e righe del DDT. Controlla sempre i risultati prima di salvare.</div><label class="field">Cantiere<select id="ddtJob">'+S.jobs.filter(x=>x.status!=='archived'&&x.status!=='completed').map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join('')+'</select></label><label class="field">Foto della bolla<input id="ddtPhoto" type="file" accept="image/*" capture="environment"></label><div class="form-grid"><label class="field">Fornitore<select id="ddtSupplier"><option value="">Riconosci automaticamente</option><option value="Elettroveneta">Elettroveneta</option><option value="Marchiol">Marchiol</option><option value="Sonepar">Sonepar</option><option value="Altro">Altro</option></select></label><label class="field">Numero DDT<input id="ddtNumber"></label><label class="field">Data<input id="ddtDate" type="date" value="'+today()+'"></label></div><div id="ocrStatus"></div><div id="ocrRows"></div><div id="ddtError"></div><div class="actions"><button class="btn alt" id="cancel">Annulla</button><button class="btn alt" id="readPhoto">Leggi con AI</button><button class="btn green" id="saveDdt" disabled>Salva bolla</button></div>');let raw='',operation=null;$('#cancel').onclick=closeModal;$('#readPhoto').onclick=async()=>{const f=$('#ddtPhoto').files[0];if(!f)return showError($('#ddtError'),'Scatta o seleziona una foto.');$('#ocrStatus').innerHTML='<div class="notice">Lettura AI della bolla in corso…</div>';$('#readPhoto').disabled=true;$('#saveDdt').disabled=true;try{const tmp=S.profile.id+'/ai-temp/'+crypto.randomUUID()+'-'+f.name.replace(/[^a-z0-9._-]/gi,'_');const up=await sb.storage.from('defimel-files').upload(tmp,f);if(up.error)throw up.error;let ai=null;try{const res=await sb.functions.invoke('defimel-ddt-ai',{body:{path:tmp}});if(res.error)throw res.error;if(res.data?.error)throw Error(res.data.message||res.data.error);ai=res.data}finally{await sb.storage.from('defimel-files').remove([tmp])}if($('#ddtPhoto').files[0]!==f)throw Error('La fotografia è cambiata. Ripeti la lettura.');const rows=(ai?.items||[]).map(x=>({code:x.code||'',name:x.description||'',qty:Number(x.quantity||0),unit:x.unit||'pz',unit_price:Number(x.unit_price||0)||null,price_basis:x.price_basis||'',line_total:Number(x.line_total||0)||null})).filter(x=>x.name&&x.qty>0);if(!recovery&&ai?.supplier){const s=String(ai.supplier).toLowerCase();$('#ddtSupplier').value=s.includes('elettroveneta')?'Elettroveneta':s.includes('marchiol')?'Marchiol':s.includes('sonepar')?'Sonepar':'Altro';}if(!recovery&&ai?.document_number)$('#ddtNumber').value=ai.document_number;if(!recovery&&ai?.document_date)$('#ddtDate').value=ai.document_date;raw=JSON.stringify(ai||{});if(!rows.length)throw Error('Nessuna riga articolo riconosciuta');$('#ocrRows').innerHTML=rows.map(x=>'<div class="ocr-row"><input class="ocrCode" placeholder="Codice" value="'+esc(x.code||'')+'"><input class="ocrName" placeholder="Materiale" value="'+esc(x.name)+'"><input class="ocrQty" type="number" step=".001" value="'+x.qty+'"><input class="ocrUnit" value="'+esc(x.unit)+'"><input class="ocrPrice" type="number" step=".00001" placeholder="Prezzo" value="'+(x.unit_price??'')+'"><input class="ocrBasis" placeholder="x 1.000 / /C" value="'+esc(x.price_basis||'')+'"><input class="ocrLineTotal" type="number" step=".01" placeholder="Importo" value="'+(x.line_total??'')+'"><button class="btn danger removeOcr" type="button">×</button></div>').join('');document.querySelectorAll('.removeOcr').forEach(b=>b.onclick=()=>b.parentElement.remove());$('#ocrStatus').innerHTML='<div class="notice"><b>'+rows.length+' righe lette con AI.</b> Controllale prima di salvare.</div>';$('#saveDdt').disabled=false}catch(e){$('#ocrStatus').innerHTML='<div class="error">Lettura AI non disponibile: '+esc(e.message||'errore')+'.</div>';$('#saveDdt').disabled=true}finally{$('#readPhoto').disabled=false}};$('#saveDdt').onclick=async()=>{
+  const btn=$('#saveDdt');if(btn.disabled)return;
+  const f=$('#ddtPhoto').files[0];
+  const rows=[...document.querySelectorAll('.ocr-row')].map(r=>({
+    code:(r.querySelector('.ocrCode')?.value||'').trim(),name:r.querySelector('.ocrName').value.trim(),
+    qty:Number(r.querySelector('.ocrQty').value),unit:r.querySelector('.ocrUnit').value||'pz',
+    unit_price:r.querySelector('.ocrPrice')?.value?Number(r.querySelector('.ocrPrice').value):null,
+    price_basis:(r.querySelector('.ocrBasis')?.value||'').trim(),
+    line_total:r.querySelector('.ocrLineTotal')?.value?Number(r.querySelector('.ocrLineTotal').value):null
+  }));
+  if(!f||!rows.length||rows.some(x=>!x.name||!Number.isFinite(x.qty)||x.qty<=0||
+    (x.unit_price!==null&&!Number.isFinite(x.unit_price))||(x.line_total!==null&&!Number.isFinite(x.line_total)))){
+    return showError($('#ddtError'),'Foto e materiali validi sono obbligatori. Correggi o rimuovi le righe non valide.');
+  }
+  const docNo=$('#ddtNumber').value.trim();
+  if(!docNo)return showError($('#ddtError'),'Inserisci il numero della bolla.');
+  // Snapshot BEFORE any await. Prevent edits/cancel/AI while the request is in flight.
+  const doc=recovery?{
+    job_id:recovery.job_id,supplier:recovery.supplier,document_number:recovery.document_number,
+    document_date:recovery.document_date,photo_path:recovery.photo_path,raw_ocr_text:recovery.raw_ocr_text
+  }:{job_id:$('#ddtJob').value,supplier:$('#ddtSupplier').value,document_number:docNo,
+    document_date:$('#ddtDate').value||null,raw_ocr_text:raw};
+  const controls=[...btn.closest('.modal').querySelectorAll('input,select,button')];
+  const disabled=controls.map(x=>x.disabled);controls.forEach(x=>x.disabled=true);
+  btn.textContent='Salvataggio…';showError($('#ddtError'),'');
+  try{
+    let op=operation;
+    if(!op){
+      // Check persistence before uploading; without it a reload cannot safely retry.
+      const key=deliveryJournalKey()+':probe';localStorage.setItem(key,'1');localStorage.removeItem(key);
+      if(!recovery){
+        doc.photo_path=S.profile.id+'/'+crypto.randomUUID()+'-'+f.name.replace(/[^a-z0-9._-]/gi,'_');
+        const up=await sb.storage.from('defimel-files').upload(doc.photo_path,f);if(up.error)throw up.error;
+      }
+      op={p_id:recovery?recovery.id:crypto.randomUUID(),p_document:doc,p_items:rows,p_recover:!!recovery};
+      writeDeliveryOperation(op);operation=op;
+    }
+    await submitDeliveryOperation(op);
+    closeModal();
+    try{await refresh()}catch(_){alert('Bolla salvata. Aggiorna la pagina per visualizzarla.');}
+  }catch(e){
+    if(operation&&!localStorage.getItem(deliveryJournalKey()+':'+operation.p_id))operation=null;
+    showError($('#ddtError'),deliverySaveError(e)+(operation?' Il tentativo è conservato: Salva bolla ripeterà gli stessi dati. Per modificarli attendi un esito certo.':''));
+  }
+  finally{controls.forEach((x,i)=>{if(x.isConnected)x.disabled=disabled[i]});if(btn.isConnected)btn.textContent='Salva bolla';}
+};
+$('#ddtPhoto').onchange=()=>{raw='';$('#ocrRows').innerHTML='';$('#saveDdt').disabled=true;};
+if(recovery){
+  $('#ddtJob').value=recovery.job_id;$('#ddtNumber').value=recovery.document_number;
+  $('#ddtDate').value=recovery.document_date||'';$('#ddtSupplier').value=recovery.supplier;
+  ['#ddtJob','#ddtNumber','#ddtDate','#ddtSupplier'].forEach(s=>$(s).disabled=true);
+  $('#ocrStatus').textContent='Recupero: seleziona la foto originale e controlla tutte le righe. La bolla e la fotografia già archiviate saranno conservate.';
+}
+}
 async function deleteDelivery(id){if(S.profile.role!=='admin')return;const d=S.delivery.find(x=>x.id===id);if(!d)return;if(!confirm('Vuoi cancellare definitivamente la bolla '+(d.document_number||'')+' di '+(d.supplier||'')+'?'))return;try{if(d.photo_path){const rm=await sb.storage.from('defimel-files').remove([d.photo_path]);if(rm.error)throw rm.error}const{error}=await sb.from('delivery_notes').delete().eq('id',id);if(error)throw error;await refresh()}catch(e){alert('Impossibile cancellare la bolla: '+e.message)}}
-async function confirmDelivery(id){const d=S.delivery.find(x=>x.id===id);const{data:items}=await sb.from('delivery_note_items').select('*').eq('delivery_note_id',id);if(!confirm('Confermare questa bolla e registrare il materiale ricevuto?'))return;for(const x of items||[]){const m=S.materials.find(y=>y.job_id===d.job_id&&['requested','ordered'].includes(y.status)&&y.name.trim().toLowerCase()===x.name.trim().toLowerCase()&&y.unit.trim().toLowerCase()===x.unit.trim().toLowerCase());if(m)await sb.from('material_requests').update({status:'received',received_at:new Date().toISOString(),supplier:d.supplier}).eq('id',m.id);else await sb.from('material_requests').insert({job_id:d.job_id,requested_by:S.profile.id,name:x.name,qty:x.qty,unit:x.unit,status:'received',received_at:new Date().toISOString(),supplier:d.supplier,note:'Bolla '+d.document_number})}await sb.from('delivery_notes').update({status:'confirmed',confirmed_by:S.profile.id,confirmed_at:new Date().toISOString()}).eq('id',id);refresh()}
+async function confirmDelivery(id){
+  if(S.profile.role!=='admin'||!confirm('Confermare questa bolla e registrare il materiale ricevuto?'))return;
+  try{
+    const {error}=await sb.rpc('defimel_confirm_delivery',{p_id:id});
+    if(error)throw error;
+    await refresh();
+  }catch(e){alert('Conferma non completata: '+deliverySaveError(e));}
+}
 
 let smallJobsRequest = 0;
 async function smallJobs(){
