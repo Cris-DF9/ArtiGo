@@ -691,7 +691,7 @@ async function archiveJob(jobId){
 }
 
 
-function costIsCable(name){return /\\b(cavo|cordina|fg16|fs17|fror|coassiale|h07v|h05v|utp|cat[ .-]?[56]|piattina)\\b/i.test(String(name||''))}
+function costIsCable(name){return /\b(cavo|cordina|fg16|fs17|fror|coassiale|h07v|h05v|utp|cat[ .-]?[56]|piattina)\b/i.test(String(name||''))}
 function costDefaultMarkup(kind){return kind==='cavo'?2.5:1.6}
 function costNumericInput(v){const n=Number(String(v??'').replace(',','.'));return Number.isFinite(n)?n:NaN}
 async function jobCostData(jobId){
