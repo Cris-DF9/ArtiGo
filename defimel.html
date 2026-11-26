@@ -690,6 +690,53 @@ async function archiveJob(jobId){
   closeModal();await refresh()
 }
 
+
+function costIsCable(name){return /\\b(cavo|cordina|fg16|fs17|fror|coassiale|h07v|h05v|utp|cat[ .-]?[56]|piattina)\\b/i.test(String(name||''))}
+function costDefaultMarkup(kind){return kind==='cavo'?2.5:1.6}
+function costNumericInput(v){const n=Number(String(v??'').replace(',','.'));return Number.isFinite(n)?n:NaN}
+async function jobCostData(jobId){
+ const dl=S.delivery.filter(d=>d.job_id===jobId),ids=dl.map(d=>d.id);
+ const items=S.deliveryItems.filter(x=>ids.includes(x.delivery_note_id));
+ const {data,error}=await sb.from('job_cost_lines').select('*').eq('job_id',jobId);
+ if(error)throw error;
+ const saved=data||[],bySource=new Map(saved.filter(x=>x.source_item_id).map(x=>[x.source_item_id,x]));
+ const lines=items.map(i=>{
+   const existing=bySource.get(i.id),kind=existing?.category||(costIsCable(i.name)?'cavo':'materiale'),qty=existing?Number(existing.qty):Number(i.qty||1);
+   const known=Number.isFinite(Number(i.unit_price))&&i.unit_price!==null;
+   const sourceCost=known?(ddtLineTotal(i)/Math.max(Number(i.qty||1),0.00001)):null;
+   return {id:existing?.id||null,source_item_id:i.id,job_id:jobId,description:existing?.description||i.name||'Materiale',category:kind,qty,unit:existing?.unit||i.unit||'pz',unit_cost:existing?.unit_cost??sourceCost,markup:existing?.markup??costDefaultMarkup(kind),supplier:dl.find(d=>d.id===i.delivery_note_id)?.supplier||''};
+ });
+ saved.filter(x=>!x.source_item_id).forEach(x=>lines.push({...x,supplier:'Inserimento manuale'}));
+ return lines;
+}
+async function openJobCosts(jobId){
+ if(S.profile?.role!=='admin')return;
+ const job=S.jobs.find(x=>x.id===jobId);if(!job)return;
+ let lines;try{lines=await jobCostData(jobId)}catch(e){alert('Impossibile caricare il consuntivo: '+e.message);return}
+ const reports=S.reports.filter(r=>r.job_id===jobId);
+ const hours=reports.reduce((s,r)=>s+Number(r.hours||0)+Number(r.travel_hours||0),0);
+ const cleanRows=()=>lines.map((x,i)=>'<div class="item" style="margin-bottom:10px"><div class="row" style="align-items:center;flex-wrap:wrap"><b style="flex:1">'+esc(x.description)+'</b><span class="muted">'+esc(x.supplier||'')+'</span></div><div class="form-grid" style="margin-top:10px"><label class="field">Categoria<select class="cost-kind" data-i="'+i+'"><option value="materiale"'+(x.category==='materiale'?' selected':'')+'>Materiale</option><option value="cavo"'+(x.category==='cavo'?' selected':'')+'>Cavo</option></select></label><label class="field">Quantità<input class="cost-qty" data-i="'+i+'" type="number" min=".001" step="any" value="'+Number(x.qty)+'"></label><label class="field">Costo unitario € (IVA esclusa)<input class="cost-price" data-i="'+i+'" type="number" min="0" step=".01" placeholder="Da inserire" value="'+(x.unit_cost===null||x.unit_cost===undefined?'':Number(x.unit_cost))+'"></label><label class="field">Ricarico<div class="row" style="align-items:center;gap:8px"><button class="btn alt cost-minus" type="button" data-i="'+i+'" aria-label="Diminuisci ricarico">−</button><strong class="cost-factor" style="min-width:45px;text-align:center">× '+Number(x.markup).toFixed(2).replace('.',',')+'</strong><button class="btn alt cost-plus" type="button" data-i="'+i+'" aria-label="Aumenta ricarico">+</button></div></label></div><div class="row" style="justify-content:space-between"><small class="muted">Prezzo vendita riga</small><b class="cost-line-total">'+(x.unit_cost==null?'Costo da inserire':euro(Number(x.qty)*Number(x.unit_cost)*Number(x.markup)))+'</b></div></div>').join('');
+ const redraw=()=>{
+  const valid=lines.filter(x=>x.unit_cost!==null&&x.unit_cost!==undefined&&Number.isFinite(Number(x.unit_cost)));
+  const purchase=valid.reduce((s,x)=>s+Number(x.qty)*Number(x.unit_cost),0),sale=valid.reduce((s,x)=>s+Number(x.qty)*Number(x.unit_cost)*Number(x.markup),0);
+  $('#costTotals').innerHTML='<div class="stats"><div class="stat"><span>Acquisto materiali</span><strong>'+euro(purchase)+'</strong></div><div class="stat"><span>Vendita materiali</span><strong>'+euro(sale)+'</strong></div><div class="stat"><span>Ore registrate</span><strong>'+hours+'</strong></div><div class="stat"><span>Manodopera a 36 €/h</span><strong>'+euro(hours*36)+'</strong></div></div><div class="notice"><b>Consuntivo cliente indicativo: '+euro(sale+hours*36)+'</b><br>IVA esclusa. '+(valid.length!==lines.length?'Attenzione: '+(lines.length-valid.length)+' righe senza costo, escluse dal totale. ':'')+'La tariffa di 36 €/h è un valore da fatturare, non un costo aziendale.</div>';
+  document.querySelectorAll('.cost-line-total').forEach((el,i)=>{const x=lines[i];el.textContent=x.unit_cost==null?'Costo da inserire':euro(Number(x.qty)*Number(x.unit_cost)*Number(x.markup))});
+ };
+ const wire=()=>{
+  document.querySelectorAll('.cost-plus,.cost-minus').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.i),x=lines[i];x.markup=Math.max(1,Math.round((Number(x.markup)+(b.classList.contains('cost-plus')?.1:-.1))*10)/10);document.querySelectorAll('.cost-factor')[i].textContent='× '+x.markup.toFixed(2).replace('.',',');redraw()});
+  document.querySelectorAll('.cost-kind').forEach(b=>b.onchange=()=>{const x=lines[Number(b.dataset.i)];x.category=b.value;x.markup=costDefaultMarkup(b.value);document.querySelectorAll('.cost-factor')[Number(b.dataset.i)].textContent='× '+x.markup.toFixed(2).replace('.',',');redraw()});
+  document.querySelectorAll('.cost-qty').forEach(b=>b.oninput=()=>{lines[Number(b.dataset.i)].qty=costNumericInput(b.value);redraw()});
+  document.querySelectorAll('.cost-price').forEach(b=>b.oninput=()=>{lines[Number(b.dataset.i)].unit_cost=b.value.trim()===''?null:costNumericInput(b.value);redraw()});
+ };
+ openModal('<div class="row" style="justify-content:space-between"><div><span class="ey">CONSUNTIVO ECONOMICO · AMMINISTRATORE</span><h2>'+esc(job.name)+'</h2></div><button class="btn alt" id="closeCosts">Chiudi</button></div><div class="notice">Ricarichi iniziali: materiali ×1,60 · cavi ×2,50. Ogni riga è modificabile separatamente. Prezzi da verificare sulle bolle prima di inviare il documento al cliente.</div><div id="costLines">'+(lines.length?cleanRows():'<div class="empty">Nessun materiale nelle bolle di questo cantiere.</div>')+'</div><div id="costTotals"></div><div id="costError" role="alert"></div><div class="actions"><button class="btn green" id="saveCosts">Salva ricarichi</button><button class="btn alt" id="pdfCosts">PDF cliente</button></div>');
+ $('#modalBody').style.width='min(1000px,100%)';
+ $('#closeCosts').onclick=closeModal;
+ wire();redraw();
+ const save=async()=>{if(lines.some(x=>!Number.isFinite(Number(x.qty))||Number(x.qty)<=0||!Number.isFinite(Number(x.markup))||Number(x.markup)<1||Number(x.markup)>10||x.unit_cost!==null&&(!Number.isFinite(Number(x.unit_cost))||Number(x.unit_cost)<0)))throw Error('Controlla quantità, costi e ricarichi delle righe.');for(const x of lines){const payload={job_id:jobId,source_item_id:x.source_item_id||null,description:x.description,category:x.category,qty:x.qty,unit:x.unit,unit_cost:x.unit_cost,markup:x.markup,created_by:S.profile.id};const result=x.id?await sb.from('job_cost_lines').update(payload).eq('id',x.id).select('id'):await sb.from('job_cost_lines').insert(payload).select('id');if(result.error||!result.data?.length)throw Error(result.error?.message||'Salvataggio non confermato');x.id=result.data[0].id;}};
+ $('#saveCosts').onclick=async()=>{const b=$('#saveCosts');b.disabled=true;try{await save();showError($('#costError'),'Ricarichi salvati correttamente.')}catch(e){showError($('#costError'),'Errore salvataggio: '+e.message)}finally{b.disabled=false}};
+ $('#pdfCosts').onclick=async()=>{const b=$('#pdfCosts');b.disabled=true;try{await save();if(lines.some(x=>x.unit_cost===null))throw Error('Completa i costi mancanti prima del PDF cliente.');const jsPDF=await ensureJsPDF(),pdf=new jsPDF({unit:'mm',format:'a4'});pdf.setFont('helvetica','bold');pdf.setFontSize(17);pdf.text('DEFIMEL',14,18);pdf.setFontSize(12);pdf.text('Consuntivo lavori - '+String(job.name||'').slice(0,75),14,28);pdf.setFont('helvetica','normal');pdf.setFontSize(9);pdf.text('Cliente: '+String(job.client_name||''),14,35);pdf.text('Valori IVA esclusa',14,41);const body=lines.map(x=>[x.description,Number(x.qty).toLocaleString('it-IT')+' '+(x.unit||''),euro(Number(x.unit_cost)*Number(x.markup)),euro(Number(x.qty)*Number(x.unit_cost)*Number(x.markup))]);if(hours>0)body.push(['Manodopera',hours.toLocaleString('it-IT')+' h',euro(36),euro(hours*36)]);pdf.autoTable({startY:47,head:[['Descrizione','Q.tà','Prezzo unitario','Totale']],body,styles:{fontSize:8,cellPadding:2},headStyles:{fillColor:[25,53,88]}});const amount=lines.reduce((s,x)=>s+Number(x.qty)*Number(x.unit_cost)*Number(x.markup),0)+hours*36;let y=(pdf.lastAutoTable?.finalY||50)+12;if(y>270){pdf.addPage();y=20}pdf.setFont('helvetica','bold');pdf.setFontSize(12);pdf.text('Totale IVA esclusa: '+euro(amount),14,y);pdf.save('DEFIMEL_Consuntivo_'+String(job.name||'cantiere').replace(/[^a-z0-9_-]/gi,'_')+'.pdf');}catch(e){showError($('#costError'),'PDF non creato: '+e.message)}finally{b.disabled=false}};
+}
+
 async function openJobDetail(jobId){
   const job=S.jobs.find(x=>x.id===jobId);if(!job)return;
   const reports=S.reports.filter(x=>x.job_id===jobId);
@@ -710,13 +757,14 @@ async function openJobDetail(jobId){
   '<section class="section"><h3>Materiali accettati</h3>'+(materials.length?'<div class="table"><table><tr><th>Materiale</th><th>Q.tà</th><th>Stato</th><th>Richiesto da</th></tr>'+materials.map(m=>'<tr><td>'+esc(m.name)+'</td><td>'+Number(m.qty||0)+' '+esc(m.unit||'')+'</td><td>'+esc({requested:'Da ordinare',ordered:'Ordinato',received:'Ricevuto',cancelled:'Annullato'}[m.status]||m.status)+'</td><td>'+esc(personName(m.requested_by))+'</td></tr>').join('')+'</table></div>':'<div class="empty">Nessun materiale registrato.</div>')+'</section>'+
   '<section class="section"><h3>Bolle / DDT</h3>'+(delivery.length?'<div class="list">'+delivery.map(d=>'<div class="item"><div class="row" style="gap:8px;flex-wrap:wrap"><strong>'+esc(d.supplier||'Fornitore')+'</strong><span class="badge '+(d.status==='confirmed'?'ok':'req')+'">'+(d.status==='confirmed'?'Confermata':'Da verificare')+'</span></div><p>DDT '+esc(d.document_number||'—')+' · '+fmt(d.document_date)+'</p><div class="row" style="margin:10px 0"><span class="muted">Totale bolla</span><strong style="font-size:20px;color:#86d37b">'+euro(ddtTotal(d.id))+'</strong></div><div class="actions" style="justify-content:flex-start"><button class="btn alt jobOpenDdtDetail" data-id="'+esc(d.id)+'">Apri dettagli</button>'+(d.photo_path?'<button class="btn alt openStoredFile" data-path="'+esc(d.photo_path)+'">Foto bolla</button>':'')+(S.profile.role==='admin'?'<button class="btn danger deleteDeliveryDetail" data-id="'+d.id+'">Cancella</button>':'')+'</div></div>').join('')+'</div>':'<div class="empty">Nessuna bolla.</div>')+'</section>'+
   '<section class="section"><div class="panel-head"><h3>Documenti e foto</h3>'+(roleCanUpload?'<button class="btn" id="uploadJobFile">Carica documento</button>':'')+'</div><div id="jobFileUpload"></div>'+(jobFiles.length?'<div class="table"><table><tr><th>File</th><th>Categoria</th><th>Data</th><th></th></tr>'+jobFiles.map(f=>'<tr><td>'+esc(f.file_name)+'</td><td>'+esc(f.category||'Documento')+'</td><td>'+new Date(f.created_at).toLocaleDateString('it-IT')+'</td><td><button class="btn alt openStoredFile" data-path="'+esc(f.object_path)+'">Apri</button></td></tr>').join('')+'</table></div>':'<div class="empty">Nessun documento caricato.</div>')+'</section>'+
-  (['admin','secretary'].includes(S.profile.role)?'<div class="actions" style="justify-content:flex-start"><button class="btn green" id="detailExport">Esporta PDF</button>'+(S.profile.role==='admin'?'<button class="btn alt" id="detailArchive">Scarica archivio completo</button>'+(job.status!=='completed'?'<button class="btn danger" id="finishJob">Segna cantiere concluso</button>':'<button class="btn green" id="reopenJob">Rimetti in lavorazione</button>'):'')+(job.status!=='archived'?'<button class="btn danger" id="archiveJob">Elimina cantiere</button>':'')+'</div>':''));
+  (['admin','secretary'].includes(S.profile.role)?'<div class="actions" style="justify-content:flex-start"><button class="btn green" id="detailExport">Esporta PDF</button>'+(S.profile.role==='admin'?'<button class="btn green" id="detailCosts">Consuntivo economico</button>':'')+(S.profile.role==='admin'?'<button class="btn alt" id="detailArchive">Scarica archivio completo</button>'+(job.status!=='completed'?'<button class="btn danger" id="finishJob">Segna cantiere concluso</button>':'<button class="btn green" id="reopenJob">Rimetti in lavorazione</button>'):'')+(job.status!=='archived'?'<button class="btn danger" id="archiveJob">Elimina cantiere</button>':'')+'</div>':''));
   $('#modalBody').style.width='min(1100px,100%)';
   $('#closeJobDetail').onclick=closeModal;
   $('#sjNewReport').onclick=()=>{closeModal();newReport();if($('#rpJob'))$('#rpJob').value=jobId};
   $('#sjNewMaterial').onclick=()=>{closeModal();S.view='materials';render();if($('#matJob'))$('#matJob').value=jobId};
   $('#sjNewDdt').onclick=()=>{closeModal();newDelivery()};
   if($('#detailExport'))$('#detailExport').onclick=()=>{closeModal();exportJobModal(jobId)};
+  if($('#detailCosts'))$('#detailCosts').onclick=()=>openJobCosts(jobId);
   if($('#detailArchive'))$('#detailArchive').onclick=async()=>{const b=$('#detailArchive');try{b.disabled=true;b.textContent='Preparazione archivio…';await exportJobArchive(jobId)}catch(e){alert('Impossibile creare l’archivio: '+e.message)}finally{if(b){b.disabled=false;b.textContent='Scarica archivio completo'}}};
   if($('#finishJob'))$('#finishJob').onclick=()=>finishJob(jobId);
   if($('#reopenJob'))$('#reopenJob').onclick=()=>reopenJob(jobId);
